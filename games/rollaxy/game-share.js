@@ -34,13 +34,19 @@ async function _createShare() {
       angle: Math.round(d.body.angle * 100) / 100,
     });
   }
-  const shareScore = score; // クロージャ保持（addMyShareId 用）
+  // speedrun クリア時は score 欄を「10_000_000 - 経過ms」に変換 (小さい ms = 大きい score = 上位)
+  const _modeType = (typeof curMode === 'function' && curMode()) ? curMode().type : null;
+  const _isSpeedrunClear = (_modeType === 'speedrun' && typeof _speedrunCleared !== 'undefined' && _speedrunCleared);
+  const submitScore = _isSpeedrunClear
+    ? Math.max(1, 10_000_000 - Math.min(_speedrunClearMs, 9_999_999))
+    : score;
+  const shareScore = submitScore; // クロージャ保持（addMyShareId 用）
   try {
     const res = await fetch('/api/rollaxy/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        score,
+        score: submitScore,
         mode:              typeof currentModeId !== 'undefined' ? currentModeId : 'endless',
         highest_body_tier: highestTier,
         snapshot_payload:  {
