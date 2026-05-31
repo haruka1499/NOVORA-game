@@ -1196,8 +1196,31 @@ function doStageClear() {
   doGameOver();
 }
 
+// 終了演出のタイミング (ms)。doGameOver 全モード共通の「停止→揺れ→スロー→通常」シーケンス。
+const _END_FREEZE_MS  = 750;   // 完全停止 (0〜)
+const _END_SHAKE_START_MS = 350; // 揺れ開始
+const _END_SHAKE_DUR_MS = 380; // 揺れの長さ
+const _END_SLOW_START_MS  = 750;  // スロー再開
+const _END_SLOW_DUR_MS  = 750;   // スロー継続
+const _END_TOTAL_DELAY_MS = _END_SLOW_START_MS + _END_SLOW_DUR_MS; // 通常速度に戻す時刻
+
+function _runEndEffect() {
+  if (eng && eng.timing) eng.timing.timeScale = 0;
+  const wrap = document.getElementById('canvas-outer');
+  if (wrap) {
+    wrap.classList.remove('end-shake'); void wrap.offsetWidth; // animation reset
+    setTimeout(() => wrap.classList.add('end-shake'), _END_SHAKE_START_MS);
+    setTimeout(() => wrap.classList.remove('end-shake'), _END_SHAKE_START_MS + _END_SHAKE_DUR_MS);
+  }
+  setTimeout(() => { if (eng?.timing) eng.timing.timeScale = 0.3; }, _END_SLOW_START_MS);
+  setTimeout(() => { if (eng?.timing) eng.timing.timeScale = 1; },   _END_TOTAL_DELAY_MS);
+}
+
 function doGameOver() {
+  if (dead) return;
   dead = true;
+  // 停止 → 揺れ → スロー → 通常 の汎用演出を起動 (オーバーレイ表示はこの後遅延)
+  _runEndEffect();
   if (dropTimer) clearTimeout(dropTimer);
   // 連鎖演出タイマーをすべて止める（ゲームオーバー後に報酬が発生しないよう）
   clearTimeout(chainTimer);       chainTimer = null;
@@ -1328,7 +1351,9 @@ function doGameOver() {
     if (d.body.position.y < CFG.DANGER_Y) _goFlashIds.add(id);
   }
   _goFlashStart = Date.now();
-  setTimeout(_startGameOverAnim, _goFlashIds.size > 0 ? GO_FLASH_MS : 0);
+  // 演出 (_END_TOTAL_DELAY_MS 分の停止→揺れ→スロー) の後にフラッシュ/ポップ/オーバーレイへ
+  setTimeout(_startGameOverAnim,
+    _END_TOTAL_DELAY_MS + (_goFlashIds.size > 0 ? GO_FLASH_MS : 0));
 }
 
 // 天体をランダム順にポップ消去し、終わったらゲームオーバーオーバーレイを表示する
