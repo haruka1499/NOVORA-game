@@ -223,64 +223,11 @@ const CFG = {
       GROWTH:      1.60,
     },
 
-    // ── 研究 ──
-    // 星屑で購入し、reqCiv（必要文明レベル）で解禁。所持研究の effect を中央集計して各所に適用。
-    // effect.type:
-    //   'rewardMult'  星屑・恒星エネルギーの獲得倍率（value=0.15 → +15%）
-    //   'scoreMult'   ゲーム内スコア倍率（value=0.10 → +10%）
-    //   'starRateMult' 恒星エネルギー/秒の倍率
-    //   'genCostMult' 物質生成器コスト倍率（value=-0.10 → -10%）
-    //   'skillCharge' 初期スキル所持数を各 +value（加算・整数）
-    //   'timeBonus'   タイムモードの制限時間 +value 秒（加算）
-    // 将来拡張: requires:[id...] で前提研究、effect 種別追加、別通貨コスト等を足せる。
-    RESEARCH: [
-      { id: 'r_reward1', reqCiv: 1, cost: 300, effect: { type: 'rewardMult', value: 0.15 },
-        nameJa: '資源効率',   nameEn: 'Resource Efficiency', nameZh: '资源效率',
-        descJa: '星屑・恒星エネルギーの獲得 +15%', descEn: '+15% stardust & stellar energy', descZh: '星屑与恒星能量 +15%' },
-      { id: 'r_score1', reqCiv: 1, cost: 300, effect: { type: 'scoreMult', value: 0.10 },
-        nameJa: '重力制御',   nameEn: 'Gravity Control', nameZh: '引力控制',
-        descJa: 'ゲーム内スコア +10%', descEn: '+10% in-game score', descZh: '游戏内分数 +10%' },
-      { id: 'r_star1', reqCiv: 2, cost: 600, effect: { type: 'starRateMult', value: 0.20 },
-        nameJa: '核融合促進', nameEn: 'Fusion Boost', nameZh: '聚变促进',
-        descJa: '恒星エネルギー/秒 +20%', descEn: '+20% stellar energy/s', descZh: '恒星能量/秒 +20%' },
-      { id: 'r_gencost1', reqCiv: 2, cost: 600, effect: { type: 'genCostMult', value: -0.10 },
-        nameJa: '生成最適化', nameEn: 'Generator Optimization', nameZh: '生成优化',
-        descJa: '物質生成器の強化コスト -10%', descEn: '-10% generator upgrade cost', descZh: '物质生成器强化成本 -10%' },
-      { id: 'r_skill1', reqCiv: 3, cost: 1000, effect: { type: 'skillCharge', value: 1 },
-        nameJa: 'スキル研鑽', nameEn: 'Skill Mastery', nameZh: '技能精进',
-        descJa: '初期スキル所持数 各+1', descEn: '+1 starting charge per skill', descZh: '初始技能持有数 各+1' },
-      { id: 'r_time1', reqCiv: 3, cost: 1000, effect: { type: 'timeBonus', value: 30 },
-        nameJa: '時間圧縮',   nameEn: 'Time Dilation', nameZh: '时间压缩',
-        descJa: 'タイムモードの制限時間 +30秒', descEn: '+30s in Time Attack', descZh: '限时模式时间 +30秒' },
-      { id: 'r_reward2', reqCiv: 4, cost: 2500, effect: { type: 'rewardMult', value: 0.25 },
-        nameJa: '資源効率 II', nameEn: 'Resource Efficiency II', nameZh: '资源效率 II',
-        descJa: '星屑・恒星エネルギーの獲得 +25%', descEn: '+25% stardust & stellar energy', descZh: '星屑与恒星能量 +25%' },
-      { id: 'r_score2', reqCiv: 5, cost: 2500, effect: { type: 'scoreMult', value: 0.20 },
-        nameJa: '重力制御 II', nameEn: 'Gravity Control II', nameZh: '引力控制 II',
-        descJa: 'ゲーム内スコア +20%', descEn: '+20% in-game score', descZh: '游戏内分数 +20%' },
-    ],
-
-    // ── 永続研究（Phase 6）──
-    // 文明ポイント(civPoints)で購入。超新星リセット対象外。
-    // 既存 getModifier() に effect.type を追加して効果反映する。
-    // effect.type 追加:
-    //   'civPointMult'    超新星報酬倍率（value=0.10 → +10%）
-    //   'massGrowthMult'  恒星の質量生産レート倍率（value=0.20 → +20%）
-    //   'planetCostMult'  惑星生成コスト倍率（value=-0.15 → -15%）
-    PERMANENT_RESEARCH: [
-      { id: 'perm_civ1', cost: 3, effect: { type: 'civPointMult', value: 0.15 },
-        nameJa: '伝承の刻印', nameEn: 'Engraved Lore', nameZh: '传承印记',
-        descJa: '超新星で得る文明ポイント +15%', descEn: '+15% Civilization Points per supernova', descZh: '超新星获得文明点 +15%' },
-      { id: 'perm_mass1', cost: 5, effect: { type: 'massGrowthMult', value: 0.20 },
-        nameJa: '宇宙の遺産', nameEn: 'Cosmic Heritage', nameZh: '宇宙遗产',
-        descJa: '恒星の成長速度 +20%', descEn: '+20% star growth speed', descZh: '恒星成长速度 +20%' },
-      { id: 'perm_planet1', cost: 8, effect: { type: 'planetCostMult', value: -0.20 },
-        nameJa: '惑星標準化', nameEn: 'Planet Standardization', nameZh: '行星标准化',
-        descJa: '惑星生成コスト -20%', descEn: '-20% planet creation cost', descZh: '行星生成成本 -20%' },
-      { id: 'perm_civ2', cost: 20, effect: { type: 'civPointMult', value: 0.30 },
-        nameJa: '文明の昇華', nameEn: 'Civilization Ascension', nameZh: '文明升华',
-        descJa: '超新星で得る文明ポイント +30% (累積)', descEn: '+30% Civilization Points per supernova (stacks)', descZh: '超新星获得文明点 +30%（叠加）' },
-    ],
+    // ── 研究ツリー (R1 で全置換) ──
+    // 旧 RESEARCH / PERMANENT_RESEARCH は research-balance.js の RESEARCH_TREE に統合済み。
+    // バランス調整は research-balance.js で完結する。
+    // ノードは「unlock + 効果適用」のみ、コストは researchPoints (RP) で支払う。
+    // 詳細は research-balance.js のヘッダーコメント参照。
 
     // ── 多恒星（Phase 5）──
     // 恒星枠 N 個目の解放コスト（文明ポイント）。COSTS[0] は初期保有なので未使用。
@@ -395,15 +342,17 @@ const STORAGE_KEYS = {
   META_GEN_LEVEL:     'rollaxy_generator_level',   // 物質生成器レベル
   META_LAST_SAVED:    'rollaxy_meta_last_saved',   // 放置蓄積の基準時刻 (ms)
   META_MASS:          'rollaxy_meta_mass',         // 蓄積質量
-  META_CIV_LEVEL:     'rollaxy_civ_level',         // 文明レベル
-  META_RESEARCH:      'rollaxy_research',           // 所持研究ID配列(JSON)
+  META_CIV_LEVEL:     'rollaxy_civ_level',         // [DEPRECATED R1] 文明レベル
+  META_RESEARCH:      'rollaxy_research',           // [DEPRECATED R1] 旧通常研究ID配列
+  META_PERM_RESEARCH: 'rollaxy_perm_research',      // [DEPRECATED R1] 旧永続研究ID配列
+  META_RESEARCH_TREE: 'rollaxy_research_tree',      // 新ツリー: 取得済みノードID配列(JSON)
+  META_RP:            'rollaxy_research_points',    // 研究ポイント保有量
   META_PLANETS:       'rollaxy_planets',            // 生成済み惑星配列(JSON) [{key,name}]
   META_CIV_POINTS:    'rollaxy_civ_points',          // 文明ポイント（超新星で獲得・永続）
   META_SUPERNOVA_CNT: 'rollaxy_supernova_count',     // 通算超新星回数（=宇宙数）
   META_STARS:         'rollaxy_stars',                // 全恒星 [{id,mass,planets}] JSON
   META_ACTIVE_STAR:   'rollaxy_active_star',          // 現在選択中の恒星ID
   META_STAR_SLOTS:    'rollaxy_star_slots',           // 解放済み恒星枠数（初期1）
-  META_PERM_RESEARCH: 'rollaxy_perm_research',        // 永続研究の所持ID配列(JSON)
   META_SIG:           'rollaxy_meta_sig',           // セーブ整合性チェックサム（簡易チート対策）
 
   // ── レガシー（移行済み・読み取り/削除のみ。新規利用しない） ──

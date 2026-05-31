@@ -1963,6 +1963,23 @@ document.getElementById('debug-reset-btn').addEventListener('click', () => {
   location.reload();
 });
 
+// デバッグ: 各種ボタン操作 (R1)
+// 注意: 全て metaState を経由→saveMeta するため、整合性署名は壊れない (anticheat に引っかからない)
+document.querySelectorAll('.debug-action-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const a = btn.dataset.action;
+    if (a === 'rp+100')        { if (typeof _debugGiveRp === 'function') _debugGiveRp(100); }
+    else if (a === 'rp+10000') { if (typeof _debugGiveRp === 'function') _debugGiveRp(10000); }
+    else if (a === 'sd+10000') { metaState.stardust += 10000; saveMeta(); updateResourceBar(); }
+    else if (a === 'cp+50')    { metaState.civPoints += 50;   saveMeta(); updateResourceBar(); }
+    else if (a === 'mass+5000'){ metaState.mass += 5000;       saveMeta(); if (typeof renderCosmos === 'function') renderCosmos(); }
+    else if (a === 'research_all')   { if (typeof _debugUnlockAllResearch === 'function') _debugUnlockAllResearch(); }
+    else if (a === 'research_reset') { if (typeof _debugResetResearch === 'function') _debugResetResearch(); }
+    else if (a === 'genlv+5')  { metaState.genLevel = Math.min(CFG.META.GENERATOR.MAX_LEVEL, metaState.genLevel + 5); saveMeta(); if (typeof renderCosmos === 'function') renderCosmos(); }
+    else if (a === 'snova_ready') { metaState.mass = 5000; saveMeta(); if (typeof renderCosmos === 'function') renderCosmos(); }
+  });
+});
+
 function buildDebugPalette() {
   const container = document.getElementById('debug-palette');
   CFG.BODIES.forEach((def, i) => {

@@ -771,7 +771,9 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   display: none;
   position: absolute;
   top: 70px; right: 0;
-  width: 68px;
+  width: 140px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
   z-index: 30;
   background: rgba(8,4,20,0.92);
   border: 1px solid rgba(80,200,120,0.45);
@@ -780,6 +782,26 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   padding: 6px 4px;
   pointer-events: auto;
 }
+#debug-section {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(80,200,120,0.25);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.debug-section-title {
+  font-size: 10px; color: #aedfd0; text-align: center;
+  margin-bottom: 2px; letter-spacing: 0.04em;
+}
+.debug-action-btn {
+  width: 100%; padding: 5px 4px;
+  background: rgba(80,200,160,0.18);
+  border: 1px solid rgba(80,200,160,0.40);
+  border-radius: 4px;
+  color: #aedfd0; font-size: 10px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.debug-action-btn:active { background: rgba(80,200,160,0.35); }
 #debug-panel.show { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 
 #debug-header {
@@ -1202,28 +1224,26 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
 
 
 /* 研究：一覧 */
-/* 研究タブ（通常 / 永続）— Phase 6 */
-#research-tabs {
-  display: flex; gap: 6px; width: 100%; margin: 6px 0 2px;
+/* 研究ポイント残高表示 (R1) */
+#research-rp-wrap {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 10px 14px; margin: 6px 0 8px;
+  background: rgba(80,200,160,0.10);
+  border: 1px solid rgba(80,200,160,0.35);
+  border-radius: 10px;
+  font-size: 14px; color: #aedfd0;
 }
-.research-tab {
-  flex: 1; padding: 8px 0; font-size: 13px; font-weight: 600;
-  border-radius: 10px 10px 0 0; border: 1px solid rgba(124,92,252,0.4); border-bottom: none;
-  background: rgba(20,12,40,0.55); color: #998eb8;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, color 0.15s;
+#research-rp-wrap .research-rp-icon { font-size: 18px; }
+#research-rp-wrap #research-rp-val { font-weight: bold; color: #fff; font-variant-numeric: tabular-nums; }
+/* 軸ヘッダー */
+.research-axis-header {
+  margin: 14px 0 6px; padding: 4px 8px;
+  font-size: 13px; font-weight: bold; color: #ffd76b;
+  border-left: 3px solid #ffd76b;
+  letter-spacing: 0.05em;
 }
-.research-tab.active {
-  background: linear-gradient(180deg, rgba(124,92,252,0.35), rgba(124,92,252,0.18));
-  color: #fff;
-}
-/* 永続研究アイテム: ゴールド系のアクセントで通常と区別 */
-.research-item.perm {
-  border-color: rgba(255,200,80,0.35);
-  background: rgba(60,40,20,0.25);
-}
-.research-buy-btn.perm { background: linear-gradient(135deg, #b58a2a, #ffd76b); color: #1a1000; }
-.research-buy-btn.perm:disabled { background: #443824; color: #888; }
+.research-item[data-tier="0"] { opacity: 0.85; }
+.research-item.locked { opacity: 0.55; }
 
 #research-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .research-item {

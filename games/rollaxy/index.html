@@ -83,15 +83,11 @@
     <div class="home-panel" id="panel-research">
       <div id="research-panel">
         <h2 data-i18n="researchTitle">研究</h2>
-        <div id="research-civ">
-          <div id="research-civ-level"></div>
-          <div id="research-civ-cost"></div>
-          <button id="research-civ-up"></button>
-        </div>
-        <!-- 研究タブ: 通常（星屑） / 永続（文明P・超新星リセットなし） -->
-        <div id="research-tabs">
-          <button class="research-tab active" data-tab="normal" data-i18n="researchTabNormal">通常</button>
-          <button class="research-tab" data-tab="perm" data-i18n="researchTabPerm">永続</button>
+        <!-- 研究ポイント残高表示 (R1) -->
+        <div id="research-rp-wrap">
+          <span class="research-rp-icon">🧪</span>
+          <span data-i18n="researchPoints">研究ポイント</span>:
+          <span id="research-rp-val">0</span>
         </div>
         <div id="research-list"></div>
       </div>
@@ -446,6 +442,19 @@
     </div>
     <button id="debug-reset-btn" title="スコア・実績・チュートリアルをリセットしてリロード">🗑 全リセット</button>
     <div id="debug-count">0 bodies</div>
+    <!-- R1: 研究ツリーデバッグ -->
+    <div id="debug-section">
+      <div class="debug-section-title">🧪 研究 / リソース</div>
+      <button class="debug-action-btn" data-action="rp+100">RP +100</button>
+      <button class="debug-action-btn" data-action="rp+10000">RP +10000</button>
+      <button class="debug-action-btn" data-action="sd+10000">💫星屑 +10000</button>
+      <button class="debug-action-btn" data-action="cp+50">🏛️文明P +50</button>
+      <button class="debug-action-btn" data-action="mass+5000">質量 +5000</button>
+      <button class="debug-action-btn" data-action="research_all">研究 全解放</button>
+      <button class="debug-action-btn" data-action="research_reset">研究 リセット</button>
+      <button class="debug-action-btn" data-action="genlv+5">生成器Lv +5</button>
+      <button class="debug-action-btn" data-action="snova_ready">超新星可能 (mass=5000)</button>
+    </div>
   </div>
 
   <!--
@@ -595,6 +604,8 @@
 <script src="game-share.js"></script>
 <script src="achievement-data.js"></script>
 <script src="game-achievements.js"></script>
+<script src="research-balance.js"></script>
+<script src="game-research.js"></script>
 <script src="game-meta.js"></script>
 <script src="game-cosmos3d.js"></script>
 <script src="game-feedback.js"></script>
