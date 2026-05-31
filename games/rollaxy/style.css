@@ -1235,15 +1235,111 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
 }
 #research-rp-wrap .research-rp-icon { font-size: 18px; }
 #research-rp-wrap #research-rp-val { font-weight: bold; color: #fff; font-variant-numeric: tabular-nums; }
-/* 軸ヘッダー */
-.research-axis-header {
-  margin: 14px 0 6px; padding: 4px 8px;
-  font-size: 13px; font-weight: bold; color: #ffd76b;
-  border-left: 3px solid #ffd76b;
-  letter-spacing: 0.05em;
+
+/* ── R2: 研究ツリー SVG + 絶対配置ノード ── */
+#research-tree-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+  border: 1px solid rgba(124,92,252,0.25);
+  border-radius: 10px;
+  background: rgba(8,4,18,0.6);
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
-.research-item[data-tier="0"] { opacity: 0.85; }
-.research-item.locked { opacity: 0.55; }
+#research-tree-canvas {
+  position: relative;
+}
+.research-tree-svg {
+  position: absolute; top: 0; left: 0;
+  pointer-events: none;  /* クリックはノード div で処理 */
+}
+/* 軸帯 (背景の薄ストライプ) */
+.research-axis-band {
+  fill: rgba(124,92,252,0.04);
+  stroke: rgba(124,92,252,0.18);
+  stroke-width: 1;
+}
+.research-axis-label {
+  fill: #ffd76b;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  alignment-baseline: hanging;
+}
+/* エッジ (前提 → 子) */
+.research-edge {
+  stroke-width: 1.5;
+  fill: none;
+}
+.research-edge.e-locked    { stroke: rgba(120,100,180,0.25); }
+.research-edge.e-available { stroke: rgba(180,200,255,0.55); stroke-dasharray: 4 3; }
+.research-edge.e-owned     { stroke: rgba(255,200,80,0.85); stroke-width: 2.2; }
+
+/* ノード本体 (HTML div を absolute 配置) */
+.research-node {
+  position: absolute;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: 8px;
+  padding: 4px 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  text-align: center;
+  font-family: inherit;
+  transition: transform 0.1s, box-shadow 0.15s;
+  user-select: none;
+}
+.research-node:active { transform: scale(0.96); }
+.research-node .rn-name {
+  font-size: 11px; font-weight: bold; line-height: 1.2;
+  color: #fff;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.research-node .rn-state {
+  font-size: 11px; margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+/* 状態別配色 */
+.research-node.locked {
+  background: rgba(40,30,60,0.55);
+  border: 1px solid rgba(120,100,180,0.30);
+  cursor: default;
+  opacity: 0.6;
+}
+.research-node.locked .rn-state { color: #887ea8; }
+.research-node.locked:active { transform: none; }
+
+.research-node.poor {
+  background: rgba(80,90,140,0.35);
+  border: 1px solid rgba(180,200,255,0.40);
+}
+.research-node.poor .rn-state { color: #b8c8e8; }
+
+.research-node.buy {
+  background: linear-gradient(135deg, rgba(80,200,160,0.30), rgba(60,180,140,0.18));
+  border: 1px solid rgba(120,255,200,0.65);
+  box-shadow: 0 0 14px rgba(120,255,200,0.30);
+  animation: researchBuyPulse 1.8s ease-in-out infinite;
+}
+.research-node.buy .rn-state { color: #aaffd6; font-weight: bold; }
+@keyframes researchBuyPulse {
+  0%,100% { box-shadow: 0 0 12px rgba(120,255,200,0.25); }
+  50%     { box-shadow: 0 0 22px rgba(120,255,200,0.55); }
+}
+
+.research-node.owned {
+  background: linear-gradient(135deg, #b58a2a 0%, #ffd76b 100%);
+  border: 1px solid #ffd76b;
+  box-shadow: 0 0 14px rgba(255,215,107,0.45);
+  cursor: default;
+}
+.research-node.owned .rn-name  { color: #1a1000; }
+.research-node.owned .rn-state { color: #1a1000; font-weight: bold; }
+.research-node.owned:active { transform: none; }
 
 #research-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .research-item {

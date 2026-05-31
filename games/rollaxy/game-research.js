@@ -160,51 +160,136 @@ function saveResearch() {
   localStorage.setItem(STORAGE_KEYS.META_RP, String(metaState.researchPoints));
 }
 
-// ── UI 描画 (R1: 軸ごとのリスト表示) ──
-// R2 で SVG ツリーに置換予定。
+// ── UI 描画 (R2: SVG エッジ + 絶対配置ノードのハイブリッド)──
+// レイアウト:
+//   X = tier (横方向に進行)、Y = 軸 ごとに帯
+//   軸内で tier ごとに節点を縦に分散配置
+//   エッジは SVG path (ベジエ曲線) で背景描画、ノードは HTML div 重ね
+// 構造:
+//   #research-list > #research-tree-wrap > #research-tree-canvas
+//     > svg (絶対) + div.research-node × N (絶対)
+// 横スクロールは #research-tree-wrap で overflow-x: auto
 function renderResearchTree() {
   if (!document.getElementById('research-list')) return;
-  // 上部に RP 残高
-  const cur = (typeof currentLang === 'string') ? currentLang : 'ja';
-  const fmt = (n) => Math.floor(n).toLocaleString();
-  const T_ = (k, ...args) => typeof T === 'function' ? (typeof T(k) === 'function' ? T(k)(...args) : T(k)) : k;
+  const cur    = (typeof currentLang === 'string') ? currentLang : 'ja';
+  const langK  = cur === 'en' ? 'En' : cur === 'zh' ? 'Zh' : 'Ja';
+  const fmt    = (n) => Math.floor(n).toLocaleString();
   _setTxt('research-rp-val', fmt(metaState.researchPoints));
 
-  const list = document.getElementById('research-list');
-  let html = '';
+  // レイアウト定数
+  const NODE_W   = 124;
+  const NODE_H   = 60;
+  const COL_GAP  = 50;   // tier 間 X 距離
+  const ROW_GAP  = 16;   // 同 tier 内のノード間 Y 距離
+  const AXIS_GAP = 38;   // 軸間の余白
+  const PAD      = 28;
+
+  // 軸 → tier → [node...] にグルーピング
+  const groups = {};
+  for (const node of RESEARCH_TREE) {
+    (groups[node.axis] = groups[node.axis] || {});
+    (groups[node.axis][node.tier] = groups[node.axis][node.tier] || []).push(node);
+  }
+
+  // 各ノードの座標を計算
+  const positions = {};
+  const axisBands = []; // { id, name, y, h }
+  let curY = PAD;
   for (const axis of RESEARCH_AXES) {
-    const axName = axis['name' + (cur === 'en' ? 'En' : cur === 'zh' ? 'Zh' : 'Ja')] || axis.nameJa;
-    html += `<div class="research-axis-header">${axName}</div>`;
-    const nodes = RESEARCH_TREE.filter(n => n.axis === axis.id).sort((a, b) => a.tier - b.tier);
-    for (const n of nodes) {
-      const nm = n['name' + (cur === 'en' ? 'En' : cur === 'zh' ? 'Zh' : 'Ja')] || n.nameJa;
-      const ds = n['desc' + (cur === 'en' ? 'En' : cur === 'zh' ? 'Zh' : 'Ja')] || n.descJa;
-      let status, cls, disabled;
-      if (isResearchUnlocked(n.id)) {
-        status = '✓'; cls = 'owned'; disabled = true;
-      } else if (!isResearchAvailable(n.id)) {
-        // 前提未達: 必要ノードを表示
-        const missing = n.prereqs.filter(p => !isResearchUnlocked(p));
-        const missNames = missing.map(p => {
-          const nd = researchNode(p);
-          return nd ? (nd['name' + (cur === 'en' ? 'En' : cur === 'zh' ? 'Zh' : 'Ja')] || nd.nameJa) : p;
-        }).join(', ');
-        status = `🔒 ${missNames}`;
-        cls = 'locked'; disabled = true;
-      } else {
-        status = `🧪 ${fmt(n.cost)}`;
-        disabled = metaState.researchPoints < n.cost;
-        cls = disabled ? 'poor' : 'buy';
+    const axisData = groups[axis.id];
+    if (!axisData) continue;
+    const tiers = Object.keys(axisData).map(Number).sort((a, b) => a - b);
+    if (!tiers.length) continue;
+    const maxNodes  = Math.max(...tiers.map(t => axisData[t].length));
+    const axisHeight = Math.max(NODE_H, maxNodes * NODE_H + (maxNodes - 1) * ROW_GAP);
+    axisBands.push({
+      id: axis.id,
+      name: axis['name' + langK] || axis.nameJa,
+      y: curY - 6,
+      h: axisHeight + 12,
+    });
+    for (const t of tiers) {
+      const nodes = axisData[t];
+      const blockH = nodes.length * NODE_H + (nodes.length - 1) * ROW_GAP;
+      const startY = curY + (axisHeight - blockH) / 2;
+      for (let i = 0; i < nodes.length; i++) {
+        positions[nodes[i].id] = {
+          x: PAD + t * (NODE_W + COL_GAP),
+          y: startY + i * (NODE_H + ROW_GAP),
+        };
       }
-      html += `<div class="research-item ${cls}" data-tier="${n.tier}">`
-            + `<div class="research-info">`
-            +   `<div class="research-name">${nm}</div>`
-            +   `<div class="research-desc">${ds}</div></div>`
-            + `<button class="research-buy-btn" data-id="${n.id}"${disabled ? ' disabled' : ''}>${status}</button>`
-            + `</div>`;
+    }
+    curY += axisHeight + AXIS_GAP;
+  }
+
+  // 全体サイズ
+  let maxX = 0, maxY = 0;
+  for (const id in positions) {
+    const p = positions[id];
+    if (p.x + NODE_W > maxX) maxX = p.x + NODE_W;
+    if (p.y + NODE_H > maxY) maxY = p.y + NODE_H;
+  }
+  const W = maxX + PAD;
+  const H = maxY + PAD;
+
+  // SVG エッジを構築 (前提ノード → 子ノード のベジエ曲線)
+  let svgEdges = '';
+  for (const node of RESEARCH_TREE) {
+    const to = positions[node.id];
+    if (!to) continue;
+    for (const pid of node.prereqs) {
+      const from = positions[pid];
+      if (!from) continue;
+      const fx = from.x + NODE_W;
+      const fy = from.y + NODE_H / 2;
+      const tx = to.x;
+      const ty = to.y + NODE_H / 2;
+      const dx = Math.max(20, (tx - fx) / 2);
+      const cls = isResearchUnlocked(node.id) ? 'e-owned'
+                : isResearchAvailable(node.id) ? 'e-available' : 'e-locked';
+      svgEdges += `<path class="research-edge ${cls}" d="M ${fx} ${fy} C ${fx+dx} ${fy} ${tx-dx} ${ty} ${tx} ${ty}" fill="none"/>`;
     }
   }
-  list.innerHTML = html;
+  // 軸の帯 (薄い背景)
+  let svgBands = '';
+  for (const b of axisBands) {
+    svgBands += `<rect class="research-axis-band" x="0" y="${b.y}" width="${W}" height="${b.h}" />`;
+    svgBands += `<text class="research-axis-label" x="${PAD - 8}" y="${b.y + 18}">${b.name}</text>`;
+  }
+
+  // ノード DOM (絶対配置の div)
+  let nodesHtml = '';
+  for (const node of RESEARCH_TREE) {
+    const p = positions[node.id];
+    if (!p) continue;
+    let cls = 'locked', stateLbl;
+    if (isResearchUnlocked(node.id)) {
+      cls = 'owned';
+      stateLbl = '✓ 取得済み';
+    } else if (isResearchAvailable(node.id)) {
+      cls = canBuyResearchNode(node.id) ? 'buy' : 'poor';
+      stateLbl = `🧪${fmt(node.cost)}`;
+    } else {
+      cls = 'locked';
+      stateLbl = '🔒';
+    }
+    const name = node['name' + langK] || node.nameJa;
+    const desc = node['desc' + langK] || node.descJa;
+    nodesHtml += `<div class="research-node ${cls}" `
+              + `data-id="${node.id}" `
+              + `style="left:${p.x}px;top:${p.y}px;width:${NODE_W}px;height:${NODE_H}px" `
+              + `title="${desc}">`
+              +   `<div class="rn-name">${name}</div>`
+              +   `<div class="rn-state">${stateLbl}</div>`
+              + `</div>`;
+  }
+
+  // 全体組立
+  const list = document.getElementById('research-list');
+  list.innerHTML = `<div id="research-tree-wrap"><div id="research-tree-canvas" style="width:${W}px;height:${H}px">`
+                + `<svg class="research-tree-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svgBands}${svgEdges}</svg>`
+                + nodesHtml
+                + `</div></div>`;
 }
 
 // ── デバッグ用 API (debug.js から呼ぶ) ──

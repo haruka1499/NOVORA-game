@@ -1056,9 +1056,10 @@ document.querySelectorAll('#rank-mode-tabs .rank-mode').forEach((btn) => {
 const _researchListEl = document.getElementById('research-list');
 if (_researchListEl) {
   _researchListEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.research-buy-btn');
-    if (!btn || btn.disabled) return;
-    if (typeof buyResearchNode === 'function' && buyResearchNode(btn.dataset.id)) {
+    // R2: 新ツリー UI は .research-node が購入トリガー
+    const node = e.target.closest('.research-node');
+    if (!node) return;
+    if (typeof buyResearchNode === 'function' && buyResearchNode(node.dataset.id)) {
       playUpgradeSound();
       renderResearch();
     }
