@@ -769,12 +769,13 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
    ============================================================ */
 #debug-panel {
   display: none;
-  position: absolute;
+  /* position:fixed + 高 z-index でホーム画面 (#start-screen z-index:1000) の上にも表示 */
+  position: fixed;
   top: 70px; right: 0;
   width: 140px;
   max-height: calc(100vh - 100px);
   overflow-y: auto;
-  z-index: 30;
+  z-index: 9500;
   background: rgba(8,4,20,0.92);
   border: 1px solid rgba(80,200,120,0.45);
   border-right: none;
