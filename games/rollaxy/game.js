@@ -441,6 +441,18 @@ function _tutStageNum() {
 let _gameStartTime     = 0; // beginGame() でセット
 let _dropCount         = 0; // 天体を落とすたびにカウント
 let _clusterVanishCount = 0; // 銀河団同士の消滅回数（ゲーム内）
+// speedrun: 銀河団作成までのタイム計測
+let _speedrunCleared   = false;
+let _speedrunClearMs   = 0;
+// mm:ss.SSS 形式に変換 (例: 95623 → "1:35.623")
+function _formatSpeedrunTime(ms) {
+  if (!ms || ms < 0) return '--:--.---';
+  const total = Math.floor(ms);
+  const min = Math.floor(total / 60000);
+  const sec = Math.floor((total % 60000) / 1000);
+  const mil = total % 1000;
+  return `${min}:${String(sec).padStart(2, '0')}.${String(mil).padStart(3, '0')}`;
+}
 let _mergeCount        = 0; // このゲームでの合成回数（doGameOver で累計に加算）
 let _bodyMergeCount    = []; // このゲームでの天体種別合成回数（インデックス=bi）
 let _savedBodyMerges   = []; // ゲーム開始時に localStorage から読み込んだ累計
@@ -996,6 +1008,12 @@ function flushMerges() {
     const ni = m.bi + 1;
     if (ni > _maxTierThisGame) _maxTierThisGame = ni; // requireTier 判定用
     _chainBaseScore += Math.round(CFG.BODIES[ni].s * _metaMod('scoreMult', 1)); // 連鎖バッファへ
+    // speedrun: 銀河団 (ni === CFG.BODIES.length - 1) 作成でクリア発火 (重複ガード付き)
+    if (ni === CFG.BODIES.length - 1 && curMode()?.type === 'speedrun' && !_speedrunCleared) {
+      _speedrunCleared = true;
+      _speedrunClearMs = Date.now() - _gameStartTime;
+      setTimeout(() => doSpeedrunClear(), 50);
+    }
 
     // 同座標スポーン防止: 微小オフセットを加える
     const ox = (Math.random() - 0.5) * 0.5;
@@ -1131,6 +1149,21 @@ function doTimeUp() {
   doGameOver();
 }
 
+// speedrun クリア: 銀河団作成時に呼ばれる。タイムをベストと比較・保存し、終了フローへ移行。
+function doSpeedrunClear() {
+  if (dead) return;
+  _endIsClear = true;
+  _endReason  = 'speedrun_clear';
+  const ms = _speedrunClearMs;
+  // ベスト更新 (ms が小さいほど良い)
+  const prev = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SPEEDRUN_MS) || '0', 10);
+  if (!prev || ms < prev) {
+    localStorage.setItem(STORAGE_KEYS.BEST_SPEEDRUN_MS, String(ms));
+  }
+  // 終了フロー (オーバーレイ表示・ランキング送信は B/C フェーズで仕上げ)
+  doGameOver();
+}
+
 // ステージクリア。クリア済みを記録し、終了フロー(doGameOver)を再利用して
 // オーバーレイを表示する（_endReason='clear' でタイトルを「クリア」に出し分け）。
 function doStageClear() {
@@ -1180,7 +1213,12 @@ function doGameOver() {
   closeChoicePanel(); // updateSkillBarRewardState を内部で呼ぶ（pendingChoiceRewards=0 が先に必要）
   resetSkillState(); // スキル状態をクリア
   if (typeof updateStageObjective === 'function') updateStageObjective(); // 目標バナーを隠す
-  finalEl.textContent = score;
+  // speedrun クリア時はスコアではなくタイム (mm:ss.SSS) を結果に表示
+  if (_endReason === 'speedrun_clear' && _speedrunClearMs > 0) {
+    finalEl.textContent = _formatSpeedrunTime(_speedrunClearMs);
+  } else {
+    finalEl.textContent = score;
+  }
   // メタ報酬（全モード）。星屑・恒星エネルギーを付与し結果に表示。
   // typeof ガードで game-meta.js 未ロードでも安全。
   const _rwEl = document.getElementById('reward-el');
@@ -1198,9 +1236,10 @@ function doGameOver() {
   // オーバーレイのタイトルを終了理由で出し分け（既定は data-i18n="gameOver"）。
   if (_overlayTitleEl) {
     _overlayTitleEl.textContent =
-      _endReason === 'clear'  ? T('stageClear') :
-      _endReason === 'timeup' ? T('timeUp') :
-                                T('gameOver');
+      _endReason === 'clear'           ? T('stageClear') :
+      _endReason === 'timeup'          ? T('timeUp') :
+      _endReason === 'speedrun_clear'  ? T('speedrunClear') :
+                                         T('gameOver');
   }
   // 自己ベスト更新（endless / time それぞれ独立して管理）
   const _mtype = curMode().type;
@@ -1385,6 +1424,14 @@ function updateHUD() {
 function updateTimerHUD() {
   const el = document.getElementById('timer-el');
   if (!el) return;
+  // speedrun モードはカウントアップで経過時間を表示
+  if (curMode()?.type === 'speedrun' && !waiting) {
+    el.style.display = '';
+    const elapsed = (dead || _speedrunCleared) ? _speedrunClearMs : (Date.now() - _gameStartTime);
+    el.textContent = `⏱ ${_formatSpeedrunTime(elapsed)}`;
+    el.classList.remove('timer-warn');
+    return;
+  }
   if (_timeLimitMs <= 0 || waiting) { el.style.display = 'none'; return; }
   el.style.display = '';
   const remain   = dead ? 0 : Math.max(0, _gameEndAt - Date.now());
@@ -1696,7 +1743,7 @@ function _openModeSelectSheet() {
 
   // モードボタンを生成（tutorial 以外）
   btnsEl.innerHTML = '';
-  const descMap = { time: T('modeDescTime'), endless: T('modeDescEndless') };
+  const descMap = { time: T('modeDescTime'), endless: T('modeDescEndless'), speedrun: T('modeDescSpeedrun') };
   CFG.MODES.filter(m => m.type !== 'tutorial' && isUnlocked(m)).forEach(m => {
     const card = document.createElement('button');
     card.className = 'mode-card';
@@ -1901,6 +1948,7 @@ function beginGame(modeId = currentModeId, stageId = currentStageId) {
   _idleLastInput = Date.now(); // 案内ポインターのアイドル計測を開始
   if (typeof settleEnergy === 'function') settleEnergy(); // 放置分を確定し lastSaved を更新
   _gameStartTime = Date.now(); // ゲーム開始時刻（elapsed_ms 計算用）
+  _speedrunCleared = false; _speedrunClearMs = 0; // speedrun 状態リセット
   // 制限時間を確定（time モードは固定 timeLimit、tutorial はステージ毎の timeLimit）
   _timeLimitMs = 0;
   if (m.type === 'time' && m.timeLimit) {

@@ -96,6 +96,8 @@ const CFG = {
     { id: 'tutorial', type: 'tutorial', nameJa: 'チュートリアル', nameEn: 'Tutorial',    nameZh: '教程', unlockLevel: 0 },
     { id: 'time',     type: 'time',     nameJa: 'タイムアタック', nameEn: 'Time Attack', nameZh: '限时', unlockLevel: 0, timeLimit: 180 },
     { id: 'endless',  type: 'endless',  nameJa: 'エンドレス',     nameEn: 'Endless',     nameZh: '无尽', unlockLevel: 0 },
+    // speedrun: 銀河団 (最深天体) を作成するまでのタイムを競う。失敗 (天体あふれ) = 記録なし。
+    { id: 'speedrun', type: 'speedrun', nameJa: 'スピードラン', nameEn: 'Speedrun',     nameZh: '速通', unlockLevel: 0 },
   ],
   DEFAULT_MODE: 'time',
 
@@ -310,6 +312,8 @@ const STORAGE_KEYS = {
   BEST_SHARE_ID:      'novora_best_share_id',
   BEST_SCORE_TIME:    'novora_best_score_time',
   BEST_SHARE_ID_TIME: 'novora_best_share_id_time',
+  BEST_SPEEDRUN_MS:    'novora_best_speedrun_ms',     // スピードランのベストタイム (ms)
+  BEST_SHARE_ID_SPEEDRUN: 'novora_best_share_id_speedrun',
   LANG:          'novora_lang',
 
   // ── rollaxy_ : このゲーム専用（リセット対象） ──
