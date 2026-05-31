@@ -388,12 +388,13 @@ function settleEnergy() {
   if (typeof awardRpFromIdle === 'function') awardRpFromIdle(T);
 
   // エネルギーレートは精算前の質量で固定（オフライン直前のレート × 時間）
-  let energyGain = energyRateFromMass(metaState.mass) * T;
+  let energyGain = energyRateFromMass(metaState.mass) * T * getModifier('offlineRateMult');
   if (!Number.isFinite(energyGain) || energyGain < 0) energyGain = 0;
 
   // 質量増加（超新星ソフトキャップで上限超過時は蓄積停止）
   if (growthPct() < CFG.META.SUPERNOVA.CAP_AT) {
-    metaState.mass += massProdRate() * T;
+    // 研究効果 offlineRateMult: 経過時間あたりの蓄積を強化（R3）
+    metaState.mass += massProdRate() * T * getModifier('offlineRateMult');
     // 上限を超えないようクランプ
     const massCap = CFG.META.SUPERNOVA.CAP_AT * CFG.META.SUPERNOVA.GROWTH_DIVISOR;
     if (metaState.mass > massCap) metaState.mass = massCap;
@@ -408,19 +409,26 @@ function settleEnergy() {
 // プレイ報酬を計算（floor）。modeType = 'time' | 'endless' | 'tutorial'
 // stardust = score × STARDUST_PER_SCORE × modeMult × 研究倍率
 // ※ エネルギーはゲームからは得られず、恒星（物質生成器）が自動生成する
-function computeReward(score, modeType) {
+// maxTier: 今回のプレイで到達した最高 Tier (game.js doGameOver から渡す)
+function computeReward(score, modeType, maxTier = 0) {
   const r = CFG.META.REWARD;
   const modeMult = (r.MODE_MULT && r.MODE_MULT[modeType] != null) ? r.MODE_MULT[modeType] : 1;
   const rMult = getModifier('rewardMult'); // 研究による報酬倍率
-  const mult = modeMult * rMult;
+  // 研究効果 planetBonus: 惑星 1 個あたり + value のボーナス (R3)
+  const planetCount = metaState.planets ? metaState.planets.length : 0;
+  const planetMult = 1 + planetCount * getModifier('planetBonus');
+  // 研究効果 highTierBonus: 高 Tier (>= 7=赤色巨星) に到達するとボーナス
+  let tierBonus = 1;
+  if (maxTier >= 7) tierBonus = 1 + (maxTier - 6) * getModifier('highTierBonus');
+  const mult = modeMult * rMult * planetMult * tierBonus;
   const stardust = Math.floor(score * r.STARDUST_PER_SCORE * mult);
   return { stardust: Math.max(0, stardust) };
 }
 
 // プレイ報酬を付与して保存。戻り値 = 付与した報酬 {stardust}。
-function grantPlayReward(score, modeType) {
+function grantPlayReward(score, modeType, maxTier = 0) {
   settleEnergy(); // 付与前に放置分を確定（lastSaved 更新）
-  const rw = computeReward(score, modeType);
+  const rw = computeReward(score, modeType, maxTier);
   metaState.stardust += rw.stardust;
   // 研究ポイントもスコアから付与
   if (typeof awardRpFromScore === 'function') awardRpFromScore(score);
@@ -909,13 +917,14 @@ let _pendingOfflineEnergy = 0;
   const T = Math.min(elapsedSec, CFG.META.IDLE.CAP_SEC);
 
   // エネルギー獲得量を計算（まだ加算しない）
-  let energyGain = energyRateFromMass(metaState.mass) * T;
+  let energyGain = energyRateFromMass(metaState.mass) * T * getModifier('offlineRateMult');
   if (!Number.isFinite(energyGain) || energyGain < 0) energyGain = 0;
 
   // 質量は即時反映・lastSaved 更新（エネルギーは保留）
   // 超新星ソフトキャップ: 1000% 以上は蓄積停止
   if (growthPct() < CFG.META.SUPERNOVA.CAP_AT) {
-    metaState.mass += massProdRate() * T;
+    // 研究効果 offlineRateMult: 経過時間あたりの蓄積を強化（R3）
+    metaState.mass += massProdRate() * T * getModifier('offlineRateMult');
     const massCap = CFG.META.SUPERNOVA.CAP_AT * CFG.META.SUPERNOVA.GROWTH_DIVISOR;
     if (metaState.mass > massCap) metaState.mass = massCap;
   }

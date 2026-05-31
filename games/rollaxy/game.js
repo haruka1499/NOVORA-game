@@ -217,6 +217,13 @@ let dead;    // true = ゲームオーバー（物理停止・描画は継続・
 let paused;  // true = 設定中（物理停止・描画は継続・#settings-overlay 表示）
 let waiting; // true = スタート待ち（物理停止・描画は継続・#start-screen 表示）
 let curBi, nxtBi, dropX, canDrop, dropTimer;
+// R3 previewLength: nxtBi より先の天体を先読みするキュー (空なら通常動作)
+let _previewLookahead = [];
+function _maintainPreviewLookahead() {
+  const want = (typeof getModifier === 'function') ? Math.max(0, Math.floor(getModifier('previewLength'))) : 0;
+  while (_previewLookahead.length < want) _previewLookahead.push(rnd());
+  if (_previewLookahead.length > want) _previewLookahead.length = want;
+}
 let bmap;    // Map<bodyId, {bi, at, body}>  ※ at = スポーン時刻(ms)
 let mq;      // merge queue: 合成待ちペアのリスト
 let glowMap; // Map<bodyId, {endTime, duration}> — 「合成時に少し光る仕様」のエフェクト管理
@@ -244,7 +251,11 @@ const _CHAIN_BONUS_SEQ = (() => {
 function _chainMultiplier(n) {
   if (n <= 1) return 1.0;
   const bonus = _CHAIN_BONUS_SEQ[Math.min(n - 2, _CHAIN_BONUS_SEQ.length - 1)];
-  return +(1 + bonus).toFixed(4);
+  // R3: 研究効果 chainMultBonus を加算 (n>=3 から適用)
+  const extra = (typeof getModifier === 'function' && n >= 3)
+    ? (getModifier('chainMultBonus') - 1) * (n - 2)  // 連鎖が深いほど効く
+    : 0;
+  return +(1 + bonus + extra).toFixed(4);
 }
 
 // ---- スキル状態 ----
@@ -538,6 +549,7 @@ function init() {
   if (dropTimer) clearTimeout(dropTimer);
 
   curBi = rnd(); nxtBi = rnd();
+  _previewLookahead = []; _maintainPreviewLookahead();
 
   _buildPhysicsWorld();
   updateHUD();
@@ -548,9 +560,11 @@ function init() {
 // bmap などの状態リセット後に呼ぶこと。
 function _buildPhysicsWorld() {
   if (eng) { Matter.Events.off(eng); Matter.Engine.clear(eng); }
+  // R3: 研究効果 fallSpeedMult (負値で重力減 = 落下遅延)
+  const gravMod = (typeof getModifier === 'function') ? getModifier('fallSpeedMult') : 1;
   eng   = Matter.Engine.create({
     enableSleeping: true,
-    gravity: { y: CFG.PHYS.GRAVITY },
+    gravity: { y: CFG.PHYS.GRAVITY * gravMod },
     positionIterations: CFG.PHYS.POS_ITER,
     velocityIterations: CFG.PHYS.VEL_ITER,
   });
@@ -579,6 +593,22 @@ function _buildPhysicsWorld() {
   Matter.Events.on(eng, 'afterUpdate',     checkCustomSleep); // 振動検出による強制スリープ
   Matter.Events.on(eng, 'afterUpdate',     scanNearby);       // 近距離ペアを補完スキャン
   Matter.Events.on(eng, 'afterUpdate',     flushMerges);      // スキャン結果を処理（登録順で後に実行）
+  Matter.Events.on(eng, 'afterUpdate',     _applyGravityWell);// R3: 中央寄せ力 (gravityWell)
+}
+
+// R3 gravityWell: 全ボディに対し盤面中央寄せの軽い力を加える
+const _BOX_CX = (CFG.BOX.L + CFG.BOX.R) / 2;
+function _applyGravityWell() {
+  if (dead) return;
+  const strength = (typeof getModifier === 'function') ? getModifier('gravityWell') : 0;
+  if (strength <= 0) return;
+  for (const d of bmap.values()) {
+    const b = d.body;
+    const dx = _BOX_CX - b.position.x;
+    // 重力スケール: 質量×係数。X 方向のみ（Y はゲーム本来の重力に任せる）
+    const fx = dx * 0.000020 * strength * b.mass;
+    Matter.Body.applyForce(b, b.position, { x: fx, y: 0 });
+  }
 }
 
 // スコア・各種カウンタ・スキル・連鎖・チュートリアル状態をリセットする
@@ -648,7 +678,26 @@ function _resetStats() {
 }
 
 // 出現する天体をランダム選択（0 〜 MAX_SPAWN の範囲）
-function rnd() { return Math.floor(Math.random() * (CFG.RULES.MAX_SPAWN + 1)); }
+function rnd() {
+  // R3 highTierSpawnMult: 高 Tier ほど出やすくなる重み付け
+  const maxBi = CFG.RULES.MAX_SPAWN;
+  const bonus = (typeof getModifier === 'function') ? (getModifier('highTierSpawnMult') - 1) : 0;
+  if (bonus <= 0) return Math.floor(Math.random() * (maxBi + 1));
+  // weight[i] = 1 + bonus * (i / maxBi)  → 低 Tier=1、最高 Tier=1+bonus
+  const weights = [];
+  let total = 0;
+  for (let i = 0; i <= maxBi; i++) {
+    const w = 1 + bonus * (i / maxBi);
+    weights.push(w);
+    total += w;
+  }
+  let r = Math.random() * total;
+  for (let i = 0; i <= maxBi; i++) {
+    r -= weights[i];
+    if (r <= 0) return i;
+  }
+  return maxBi;
+}
 
 // ============================================================
 // SPAWN — 「天体」を物理ワールドに生成
@@ -709,7 +758,10 @@ function drop() {
     const x = clamp(dropX, CFG.BOX.L + def.r + 1, CFG.BOX.R - def.r - 1);
     spawn(x, CFG.DROP_Y, curBi);
     _checkSimultaneous();
-    curBi = nxtBi; nxtBi = rnd();
+    // R3 previewLength: 先読みキューがあれば優先消費
+    curBi = nxtBi;
+    nxtBi = _previewLookahead.length > 0 ? _previewLookahead.shift() : rnd();
+    _maintainPreviewLookahead();
     updateHUD();
   }
 
@@ -1001,7 +1053,9 @@ function scanNearby() {
     if (now - dA.at < CFG.RULES.MERGE_GRACE_MS) continue;
     const bA = dA.body;
     const r  = CFG.BODIES[dA.bi].r; // 同種なので rA === rB
-    const threshold = r * 2 + r * CFG.RULES.MERGE_MARGIN;
+    // R3 mergeAssist: 合成判定距離を緩和 (getModifier で value 加算分だけ拡張)
+    const assist = (typeof getModifier === 'function') ? (getModifier('mergeAssist') - 1) : 0;
+    const threshold = r * 2 + r * CFG.RULES.MERGE_MARGIN * (1 + assist);
     const thresh2   = threshold * threshold; // sqrt 回避
 
     for (let j = i + 1; j < entries.length; j++) {
@@ -1111,7 +1165,10 @@ function doGameOver() {
   // typeof ガードで game-meta.js 未ロードでも安全。
   const _rwEl = document.getElementById('reward-el');
   if (typeof grantPlayReward === 'function') {
-    const _rw = grantPlayReward(score, curMode().type);
+    // R3: 今回のプレイ中で達成した最高 Tier を渡す (highTierBonus 計算用)
+    let _maxTier = 0;
+    for (const d of bmap.values()) if (d.bi > _maxTier) _maxTier = d.bi;
+    const _rw = grantPlayReward(score, curMode().type, _maxTier);
     if (_rwEl) _rwEl.textContent = `${T('rewardGained')}: 💫 ${_rw.stardust}`;
     // ゲームオーバーオーバーレイ表示後にリソースバーへパーティクルを飛ばす
     _pendingReward = { stardust: _rw.stardust };
@@ -1286,11 +1343,22 @@ function updateHUD() {
   // チュートリアルではスコアが進捗指標になるステージがあるため、HUDも同期更新
   if (_m && _m.type === 'tutorial') updateStageObjective();
   const _ni = bodyImages[nxtBi];
+  let _previewHtml;
   if (_ni && _ni.complete && _ni.naturalWidth > 0) {
-    nextEmoEl.innerHTML = `<img src="${_ni.src}" style="height:1.3em;vertical-align:middle;border-radius:50%">`;
+    _previewHtml = `<img src="${_ni.src}" style="height:1.3em;vertical-align:middle;border-radius:50%">`;
   } else {
-    nextEmoEl.textContent = CFG.BODIES[nxtBi].e;
+    _previewHtml = CFG.BODIES[nxtBi].e;
   }
+  // R3 previewLength: 先読み天体を後ろに小さく追加
+  for (const bi of _previewLookahead) {
+    const ei = bodyImages[bi];
+    if (ei && ei.complete && ei.naturalWidth > 0) {
+      _previewHtml += `<img src="${ei.src}" style="height:0.85em;vertical-align:middle;margin-left:2px;border-radius:50%;opacity:0.65">`;
+    } else {
+      _previewHtml += `<span style="font-size:0.75em;opacity:0.65;margin-left:2px">${CFG.BODIES[bi].e}</span>`;
+    }
+  }
+  nextEmoEl.innerHTML = _previewHtml;
 }
 
 // 残り時間表示（time / 制限時間付き tutorial ステージのみ表示）。loop から毎フレーム呼ぶ。
