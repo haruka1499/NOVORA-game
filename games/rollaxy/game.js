@@ -184,15 +184,35 @@ function _playChainScoreAnim(baseSc, finalCount, isSkill) {
   tick();
 }
 
-// リソースバー（星屑・エネルギー保有量）の表示/非表示
-function showResourceBar() {
-  const el = document.getElementById('resource-bar');
-  if (el) el.style.display = 'flex';
-}
-function hideResourceBar() {
-  const el = document.getElementById('resource-bar');
-  if (el) el.style.display = 'none';
-}
+// リソースバー (星屑/エネルギー/文明P) は廃止。互換のため呼び出し側のために no-op を残す。
+function showResourceBar() {}
+function hideResourceBar() {}
+
+// ── 起動時クリーンアップ: 研究/宇宙関連の旧 localStorage キーを一括削除 ──
+// 廃止された機能のデータが残るとロード時に混乱するため、起動の最初に削除する。
+// ハイスコア・実績・チュートリアル進捗・統計・設定などプレイに関係するものは残す。
+(function _cleanupDeprecatedMeta() {
+  const deprecated = [
+    'rollaxy_stardust',
+    'rollaxy_stellar_energy',
+    'rollaxy_meta_mass',
+    'rollaxy_generator_level',
+    'rollaxy_civ_level',
+    'rollaxy_civ_points',
+    'rollaxy_supernova_count',
+    'rollaxy_meta_last_saved',
+    'rollaxy_meta_sig',
+    'rollaxy_research',
+    'rollaxy_perm_research',
+    'rollaxy_research_tree',
+    'rollaxy_research_points',
+    'rollaxy_planets',
+    'rollaxy_stars',
+    'rollaxy_active_star',
+    'rollaxy_star_slots',
+  ];
+  for (const k of deprecated) localStorage.removeItem(k);
+})();
 
 // ============================================================
 // 天体カスタム画像（絵文字の代わりに PNG を使う天体）
@@ -1711,8 +1731,6 @@ if (_modeSelectBack) on(_modeSelectBack, () => { playDecisionSound(); _closeMode
 // ── ホーム下部バー（タブ切替）──
 // プレイ=ホーム基本画面（オーバーレイを閉じる）、恒星/研究/実績/ランキングは各オーバーレイ。
 function _closeAllHomeOverlays() {
-  if (typeof closeCosmos      === 'function') closeCosmos();
-  if (typeof closeResearch    === 'function') closeResearch();
   if (typeof closeRankingHome === 'function') closeRankingHome();
   if (typeof closeAchievements === 'function') closeAchievements();
 }
@@ -1720,19 +1738,10 @@ function showHomeTab(tab) {
   _closeAllHomeOverlays();
   document.querySelectorAll('#home-nav .nav-item')
     .forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  // デスクトップ フォーカスモード:
-  //   通常は 3 列同時表示。研究/恒星 タブを押した時のみ body クラスを付けて該当パネルを全幅化
-  //   ach/ranking は overlay として開くだけで通常 3 列レイアウトを崩さない
-  document.body.classList.remove('home-focus-research', 'home-focus-cosmos');
-  if (tab === 'research')   document.body.classList.add('home-focus-research');
-  else if (tab === 'cosmos') document.body.classList.add('home-focus-cosmos');
-  if      (tab === 'cosmos'   && typeof openCosmos      === 'function') openCosmos();
-  else if (tab === 'research' && typeof openResearch    === 'function') openResearch();
-  else if (tab === 'ranking'  && typeof openRankingHome === 'function') openRankingHome();
-  else if (tab === 'ach'      && typeof openAchievements === 'function') openAchievements();
-  if (tab === 'play') updateModeToggle(); // プレイ＝ホーム基本画面を最新化
-  // デスクトップ: どのタブを選んでも両パネルtickを維持
-  if (typeof ensureDesktopTicks === 'function') ensureDesktopTicks();
+  // 研究/宇宙パネル廃止により分岐は ach / ranking / play のみ
+  if      (tab === 'ranking' && typeof openRankingHome === 'function') openRankingHome();
+  else if (tab === 'ach'     && typeof openAchievements === 'function') openAchievements();
+  if (tab === 'play') updateModeToggle();
 }
 // チュートリアル完了までは「プレイ」以外を隠す。完了で一斉解禁。
 function updateHomeNav() {
@@ -2031,20 +2040,13 @@ document.getElementById('debug-reset-btn').addEventListener('click', () => {
   location.reload();
 });
 
-// デバッグ: 各種ボタン操作 (R1)
-// 注意: 全て metaState を経由→saveMeta するため、整合性署名は壊れない (anticheat に引っかからない)
+// デバッグ: 各種ボタン操作。研究/宇宙廃止に伴い当面はスコア関連のみ
 document.querySelectorAll('.debug-action-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const a = btn.dataset.action;
-    if (a === 'rp+100')        { if (typeof _debugGiveRp === 'function') _debugGiveRp(100); }
-    else if (a === 'rp+10000') { if (typeof _debugGiveRp === 'function') _debugGiveRp(10000); }
-    else if (a === 'sd+10000') { metaState.stardust += 10000; saveMeta(); updateResourceBar(); }
-    else if (a === 'cp+50')    { metaState.civPoints += 50;   saveMeta(); updateResourceBar(); }
-    else if (a === 'mass+5000'){ metaState.mass += 5000;       saveMeta(); if (typeof renderCosmos === 'function') renderCosmos(); }
-    else if (a === 'research_all')   { if (typeof _debugUnlockAllResearch === 'function') _debugUnlockAllResearch(); }
-    else if (a === 'research_reset') { if (typeof _debugResetResearch === 'function') _debugResetResearch(); }
-    else if (a === 'genlv+5')  { metaState.genLevel = Math.min(CFG.META.GENERATOR.MAX_LEVEL, metaState.genLevel + 5); saveMeta(); if (typeof renderCosmos === 'function') renderCosmos(); }
-    else if (a === 'snova_ready') { metaState.mass = 5000; saveMeta(); if (typeof renderCosmos === 'function') renderCosmos(); }
+    if (a === 'score+1000') { score += 1000; updateHUD(); }
+    else if (a === 'score+10000') { score += 10000; updateHUD(); }
+    else if (a === 'clear_hi') { localStorage.removeItem(STORAGE_KEYS.HI_SCORE); localStorage.removeItem(STORAGE_KEYS.BEST_SCORE); localStorage.removeItem(STORAGE_KEYS.BEST_SCORE_TIME); }
   });
 });
 

@@ -63,12 +63,7 @@
   position: fixed で viewport 全体を不透明に覆い、ゲームが一切見えない状態を作る。
   beginGame() で .hidden クラスを付与してフェードアウト。init() で .hidden を外してフェードイン。
 -->
-<!-- リソースバー（星屑・エネルギー保有量）— position:fixed で全画面共通表示 -->
-<div id="resource-bar" style="display:none">
-  <span id="res-stardust"><span class="res-icon">💫</span><span id="res-stardust-val">0</span></span>
-  <span id="res-energy"><span class="res-icon">⚡</span><span id="res-energy-val">0</span></span>
-  <span id="res-civpoints" style="display:none"><span class="res-icon">🏛️</span><span id="res-civpoints-val">0</span></span>
-</div>
+<!-- 研究/宇宙システム廃止により リソースバー (星屑/エネルギー/文明P) は削除 -->
 
 <!--
   ホームカルーセル（#start-screen）
@@ -79,21 +74,7 @@
 <div id="start-screen">
   <div id="home-carousel">
 
-    <!-- パネル0: 研究（LEFT） -->
-    <div class="home-panel" id="panel-research">
-      <div id="research-panel">
-        <h2 data-i18n="researchTitle">研究</h2>
-        <!-- 研究ポイント残高表示 (R1) -->
-        <div id="research-rp-wrap">
-          <span class="research-rp-icon">🧪</span>
-          <span data-i18n="researchPoints">研究ポイント</span>:
-          <span id="research-rp-val">0</span>
-        </div>
-        <div id="research-list"></div>
-      </div>
-    </div>
-
-    <!-- パネル1: プレイ（CENTER） -->
+    <!-- パネル1: プレイ（CENTER、現在は唯一のパネル） -->
     <div class="home-panel" id="panel-play">
       <h2 data-i18n="title">ころころ宇宙</h2>
       <div id="start-playername">
@@ -128,43 +109,7 @@
       </div>
     </div>
 
-    <!-- パネル2: 恒星（RIGHT） -->
-    <!-- Phase 2: 3D 宇宙ビューアがパネル全面を占め、タイトル/HUD はオーバーレイ。
-         3D の恒星サイズ・グロー色は生成器レベル/tier/エネルギーレートに連動する -->
-    <div class="home-panel" id="panel-cosmos">
-      <!-- 3D 宇宙ビューア (Three.js) — パネル全面 -->
-      <div id="cosmos-3d-wrap">
-        <canvas id="cosmos-3d"></canvas>
-      </div>
-      <!-- 上部オーバーレイ: タイトル + 多恒星セレクタ -->
-      <div id="cosmos-overlay-top">
-        <h2 data-i18n="cosmosTitle">宇宙</h2>
-        <div id="cosmos-star-tabs"></div>
-      </div>
-      <!-- 下部オーバーレイ HUD: 既存指標（質量/レート/物質生成器）+ 惑星 -->
-      <div id="cosmos-compact">
-        <div id="cosmos-mass"></div>
-        <div id="cosmos-rate"></div>
-        <div id="cosmos-generator">
-          <div id="cosmos-gen-head" data-i18n="generatorTitle">物質生成器</div>
-          <div id="cosmos-gen-level">Lv 1</div>
-          <button id="cosmos-upgrade-btn">強化</button>
-        </div>
-        <!-- 惑星 HUD 行 -->
-        <div id="cosmos-planet-row">
-          <span id="cosmos-planet-count">🪐 0 / 0</span>
-          <button id="cosmos-planet-add">＋</button>
-        </div>
-        <!-- 成長% + 超新星 HUD 行 -->
-        <div id="cosmos-growth-row">
-          <div id="cosmos-growth-info">
-            <span id="cosmos-growth-pct">0%</span>
-            <div id="cosmos-growth-bar"><div id="cosmos-growth-fill"></div></div>
-          </div>
-          <button id="cosmos-supernova-btn" disabled>—</button>
-        </div>
-      </div>
-    </div>
+    <!-- 宇宙パネル/3Dビューアは廃止 -->
 
   </div><!-- /#home-carousel -->
   <!-- 右上メニュー（カルーセル外に配置することで、パネル切替時もボタンが常に右上に固定表示される） -->
@@ -180,9 +125,6 @@
 <!-- ホーム下部 5ボタンバー。固定要素・z-index でオーバーレイより前面。バーで各パネルを切替 -->
 <!-- ボタン順: 研究(左端) | 実績 | プレイ(中央↑) | ランキング | 恒星(右端) — スワイプ方向と一致 -->
 <nav id="home-nav">
-  <button id="nav-research" class="nav-item" data-tab="research">
-    <span class="nav-icon">🔬</span><span class="nav-label" data-i18n="navResearch">研究</span>
-  </button>
   <button id="nav-ach" class="nav-item" data-tab="ach">
     <span class="nav-icon">🏆</span><span class="nav-label" data-i18n="navAch">実績</span>
   </button>
@@ -191,9 +133,6 @@
   </button>
   <button id="nav-ranking" class="nav-item" data-tab="ranking">
     <span class="nav-icon">📊</span><span class="nav-label" data-i18n="navRanking">ランキング</span>
-  </button>
-  <button id="nav-cosmos" class="nav-item" data-tab="cosmos">
-    <span class="nav-icon">🌌</span><span class="nav-label" data-i18n="navCosmos">恒星</span>
   </button>
 </nav>
 
@@ -273,47 +212,7 @@
   </div>
 </div>
 
-<!-- オフライン報酬モーダル -->
-<div id="offline-reward-modal" style="display:none">
-  <div id="offline-reward-panel">
-    <div id="offline-reward-title"></div>
-    <div id="offline-reward-duration"></div>
-    <div id="offline-reward-row">
-      <span id="offline-reward-label"></span>
-      <span id="offline-reward-amount"></span>
-    </div>
-    <button id="offline-reward-collect-btn"></button>
-  </div>
-</div>
-
-<!-- 超新星確認モーダル -->
-<div id="supernova-modal" style="display:none">
-  <div id="supernova-panel">
-    <div id="supernova-modal-title"></div>
-    <div id="supernova-modal-desc"></div>
-    <div id="supernova-modal-reward"></div>
-    <div id="supernova-modal-actions">
-      <button id="supernova-modal-cancel"></button>
-      <button id="supernova-modal-ok"></button>
-    </div>
-  </div>
-</div>
-
-<!-- 惑星追加モーダル（宇宙パネルの「＋追加」から開く） -->
-<div id="planet-modal" style="display:none">
-  <div id="planet-panel">
-    <div id="planet-modal-title"></div>
-    <div id="planet-choices"></div>
-    <input id="planet-name-input" type="text" maxlength="15">
-    <div id="planet-modal-cost"></div>
-    <div id="planet-modal-actions">
-      <button id="planet-modal-cancel"></button>
-      <button id="planet-modal-add"></button>
-    </div>
-  </div>
-</div>
-
-<!-- 宇宙パネルはホームカルーセル内 #panel-cosmos に移動済み -->
+<!-- オフライン報酬/超新星/惑星モーダルは研究/宇宙廃止により削除 -->
 
 <!--
   ゲームエリア（#canvas-outer）
@@ -442,18 +341,12 @@
     </div>
     <button id="debug-reset-btn" title="スコア・実績・チュートリアルをリセットしてリロード">🗑 全リセット</button>
     <div id="debug-count">0 bodies</div>
-    <!-- R1: 研究ツリーデバッグ -->
+    <!-- 研究/宇宙廃止後: スコア関連デバッグのみ -->
     <div id="debug-section">
-      <div class="debug-section-title">🧪 研究 / リソース</div>
-      <button class="debug-action-btn" data-action="rp+100">RP +100</button>
-      <button class="debug-action-btn" data-action="rp+10000">RP +10000</button>
-      <button class="debug-action-btn" data-action="sd+10000">💫星屑 +10000</button>
-      <button class="debug-action-btn" data-action="cp+50">🏛️文明P +50</button>
-      <button class="debug-action-btn" data-action="mass+5000">質量 +5000</button>
-      <button class="debug-action-btn" data-action="research_all">研究 全解放</button>
-      <button class="debug-action-btn" data-action="research_reset">研究 リセット</button>
-      <button class="debug-action-btn" data-action="genlv+5">生成器Lv +5</button>
-      <button class="debug-action-btn" data-action="snova_ready">超新星可能 (mass=5000)</button>
+      <div class="debug-section-title">スコア</div>
+      <button class="debug-action-btn" data-action="score+1000">スコア +1000</button>
+      <button class="debug-action-btn" data-action="score+10000">スコア +10000</button>
+      <button class="debug-action-btn" data-action="clear_hi">ハイスコア消去</button>
     </div>
   </div>
 
@@ -568,31 +461,7 @@
   <div id="skill-toast" style="display:none"></div>
 </div>
 
-<!-- Three.js + ポストプロセッシング(UnrealBloomPass) を ES モジュール+importmap で読込。
-     window.THREE / Composer 系を window に公開後、cosmos-libs-ready イベントで通知。
-     game-cosmos3d.js (非モジュール) はこのイベントを待ってから初期化する。 -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-<script type="module">
-  import * as THREE from 'three';
-  import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js';
-  import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
-  import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
-  import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
-  window.THREE = THREE;
-  window.EffectComposer  = EffectComposer;
-  window.RenderPass      = RenderPass;
-  window.UnrealBloomPass = UnrealBloomPass;
-  window.OutputPass      = OutputPass;
-  window.__cosmosLibsReady = true;
-  window.dispatchEvent(new CustomEvent('cosmos-libs-ready'));
-</script>
+<!-- 研究/宇宙システム廃止により Three.js + メタ系スクリプトは削除 -->
 <script src="vendor/matter.min.js"></script>
 <script src="config.js"></script>
 <script src="lang.js"></script>
@@ -604,10 +473,6 @@
 <script src="game-share.js"></script>
 <script src="achievement-data.js"></script>
 <script src="game-achievements.js"></script>
-<script src="research-balance.js"></script>
-<script src="game-research.js"></script>
-<script src="game-meta.js"></script>
-<script src="game-cosmos3d.js"></script>
 <script src="game-feedback.js"></script>
 <script src="game.js"></script>
 <script src="game-ui.js"></script>
