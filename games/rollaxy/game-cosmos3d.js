@@ -79,19 +79,22 @@ window.Cosmos3D = (function () {
   // 発光は表面全体ではなく高温部分中心。テクスチャの模様も保つ。
   const SUN_FRAG = NOISE_GLSL + `
     uniform float uTime; uniform sampler2D uTex; uniform vec3 uColor;
+    uniform float uInstability;  // 0=通常、1=超新星予兆(沸騰激化+色相青白寄り)
     varying vec2 vUv; varying vec3 vPos; varying vec3 vNormalW; varying vec3 vViewDirW;
     void main(){
-      float t = uTime * 0.18;
+      float speedMult = 1.0 + uInstability * 4.0; // 不安定時は流動高速化
+      float t = uTime * 0.18 * speedMult;
       vec3 q = vPos * 2.4;
-      // テクスチャを軽くドメインワープ（プラズマの流動）
+      // テクスチャを軽くドメインワープ（プラズマの流動）。不安定時は強くワープ
       float w = fbm(q + vec3(0.0, 0.0, t));
-      vec2 uv2 = vUv + vec2(w) * 0.02;
+      vec2 uv2 = vUv + vec2(w) * (0.02 + uInstability * 0.06);
       vec3 base = texture2D(uTex, uv2).rgb;
 
-      // 表面の温度マップ（球面のどの位置が高温かを FBM で）
+      // 表面の温度マップ（球面のどの位置が高温かを FBM で）。不安定時は高周波成分追加
       float heat = fbm(q * 1.6 + vec3(t * 0.8));
       heat += fbm(q * 4.5 + vec3(t * 1.6)) * 0.5;
-      heat = clamp(heat * 0.5 + 0.55, 0.0, 1.0);
+      heat += fbm(q * 9.0 + vec3(t * 3.0)) * uInstability * 0.6;
+      heat = clamp(heat * 0.5 + 0.55 + uInstability * 0.25, 0.0, 1.0);
 
       // 色グラデーション: 赤 → 橙 → 黄 → 白（高温ほど白）
       vec3 cRed    = vec3(0.45, 0.05, 0.02);
@@ -112,6 +115,11 @@ window.Cosmos3D = (function () {
       float NdV = max(dot(vNormalW, vViewDirW), 0.0);
       float fres = pow(1.0 - NdV, 2.5);
       col += cOrange * fres * 0.35;
+
+      // 不安定時: 色相を青白寄りに、全体を増光（崩壊直前の超高温感）
+      vec3 hotBlue = vec3(1.3, 1.4, 1.8);
+      col = mix(col, hotBlue, uInstability * 0.4);
+      col *= 1.0 + uInstability * 1.5;
 
       gl_FragColor = vec4(col, 1.0);
     }
@@ -173,7 +181,32 @@ window.Cosmos3D = (function () {
   let solarFlares = [];                // [{mesh, mat, t, riseDur, peakDur, fadeDur}]
   let _nextFlareIn = 3.0;              // 次のフレア出現までの秒数 (起動 3 秒後に初回)
   let composer, bloomPass;             // EffectComposer + UnrealBloomPass
-  let supernovaT = 0;                  // 超新星演出の進行時間（0=非演出, >0=演出中）
+
+  // ── 超新星演出リソース (init で1度作成、triggerSupernova で再起動)──
+  let supernovaT = 0;                  // 0 = 非演出、>0 = 演出進行時間 (秒)
+  let _lastFrameT = 0;                 // dt 計算用
+  let snFlashSprite = null;            // 全画面閃光 (Sprite)
+  let snShockwaves = [];               // 衝撃波 球シェル [{mesh, mat, delay}]
+  let snExplosionPoints = null;        // 爆発粒子 (THREE.Points)
+  let snExplosionMat = null;
+  let snEnergyCloud = null;            // 膨張エネルギー雲 (球メッシュ)
+  let snEnergyMat = null;
+  let snNebulaPoints = null;           // 残骸星雲 (Points)
+  let snNebulaMat = null;
+  let _camShake = 0;                   // カメラ振動の強度 (フェーズで設定)
+
+  // 超新星演出のフェーズ境界 (秒、トリガーからの経過)
+  const SN_WARN_END    = 1.8;          // 予兆 (恒星不安定)
+  const SN_FLASH_PEAK  = 1.95;         // 閃光ピーク (フラッシュ最大)
+  const SN_FLASH_END   = 2.2;          // 閃光終わり
+  const SN_EXPAND_END  = 5.2;          // 拡散フェーズ終わり
+  const SN_TOTAL       = 7.5;          // 全体終了 (残骸も含む)
+  // 品質依存パーティクル数
+  const QUALITY_SN = {
+    HIGH: { explosionParts: 1200, nebulaParts: 400 },
+    MID:  { explosionParts: 600,  nebulaParts: 200 },
+    LOW:  { explosionParts: 300,  nebulaParts: 100 },
+  };
 
   // ── 動的品質（Phase 7）──
   // HIGH: 全機能 / MID: 中間 / LOW: 軽量。起動時HIGH、fps が画面更新の90%を下回ったら段階的に下げる
@@ -297,9 +330,10 @@ window.Cosmos3D = (function () {
     const sunTex = _npotSafe(loader.load('images/cosmos/sun.jpg'));
     sunMat = new THREE.ShaderMaterial({
       uniforms: {
-        uTime:  { value: 0 },
-        uTex:   { value: sunTex },
-        uColor: { value: new THREE.Color(target.glowColor) },
+        uTime:        { value: 0 },
+        uTex:         { value: sunTex },
+        uColor:       { value: new THREE.Color(target.glowColor) },
+        uInstability: { value: 0 },
       },
       vertexShader:   SUN_VERT,
       fragmentShader: SUN_FRAG,
@@ -380,6 +414,9 @@ window.Cosmos3D = (function () {
       console.warn('[cosmos3d] UnrealBloomPass 未ロード。Bloom なしで描画継続');
     }
 
+    // 超新星リソースを 1 度作成（不可視で待機、triggerSupernova で起動）
+    _initSupernovaResources();
+
     window.addEventListener('resize', _onResize);
     if (typeof ResizeObserver !== 'undefined') new ResizeObserver(_onResize).observe(wrap);
 
@@ -444,6 +481,130 @@ window.Cosmos3D = (function () {
       float hot = 1.0 - abs(vT - 0.5) * 2.0; // 0..1
       vec3 col = mix(uColor, vec3(1.6, 1.2, 0.7), hot * 0.45);
       gl_FragColor = vec4(col * a * 1.6, a);
+    }
+  `;
+
+  // ── 超新星 爆発粒子シェーダ ──
+  // 各粒子は velocity(初期方向×速度) と lifetime を attribute で持つ。
+  // 位置は velocity * uT で原点から放射状に広がる。
+  // 色は時間で 白 → 黄 → 橙 → 赤 → 透明 と冷却。
+  const EXPLOSION_VERT = `
+    attribute vec3 velocity;
+    attribute float lifetime;
+    uniform float uT;
+    varying float vP;     // 寿命進行率 0..1
+    varying float vSpeed;
+    void main(){
+      // 原点から velocity の方向に時間進行
+      vec3 pos = velocity * uT;
+      vP = uT / lifetime;
+      vSpeed = length(velocity);
+      vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+      // 粒子サイズ: 時間と共に縮小、速い粒子ほど大きく
+      float size = (12.0 + 18.0 * (1.0 - clamp(vP, 0.0, 1.0))) * (0.7 + vSpeed * 0.5);
+      gl_PointSize = size / -mv.z;
+      gl_Position = projectionMatrix * mv;
+    }
+  `;
+  const EXPLOSION_FRAG = `
+    varying float vP;
+    varying float vSpeed;
+    void main(){
+      if (vP > 1.0) discard;
+      vec2 d = gl_PointCoord - vec2(0.5);
+      float dist = length(d);
+      if (dist > 0.5) discard;
+      float fall = smoothstep(0.5, 0.0, dist);
+      // 色冷却: vP=0 白 → 0.3 黄 → 0.6 橙 → 0.9 暗赤 → 1.0 消失
+      vec3 cWhite  = vec3(1.5, 1.4, 1.1);
+      vec3 cYellow = vec3(1.4, 1.0, 0.4);
+      vec3 cOrange = vec3(1.2, 0.55, 0.15);
+      vec3 cRed    = vec3(0.6, 0.12, 0.05);
+      vec3 col = mix(cWhite, cYellow, smoothstep(0.0, 0.3, vP));
+      col = mix(col, cOrange, smoothstep(0.25, 0.6, vP));
+      col = mix(col, cRed,    smoothstep(0.55, 0.95, vP));
+      float a = fall * (1.0 - smoothstep(0.7, 1.0, vP));
+      gl_FragColor = vec4(col * a * 1.6, a);
+    }
+  `;
+
+  // ── 衝撃波シェル: 球面の silhouette だけ強いリングとして光る ──
+  // 球をスケールアップ + 不透明度フェードで「拡大するリング」に見せる
+  const SHOCKWAVE_VERT = `
+    varying vec3 vN;
+    varying vec3 vV;
+    void main(){
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vN = normalize(mat3(modelMatrix) * normal);
+      vV = normalize(cameraPosition - wp.xyz);
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `;
+  const SHOCKWAVE_FRAG = `
+    uniform float uOpacity;
+    uniform vec3 uColor;
+    varying vec3 vN;
+    varying vec3 vV;
+    void main(){
+      float fres = pow(1.0 - max(dot(vN, vV), 0.0), 8.0);
+      float a = fres * uOpacity;
+      gl_FragColor = vec4(uColor * a * 2.5, a);
+    }
+  `;
+
+  // ── エネルギー雲: 緩やかに膨張する半透明シェル ──
+  const ENERGY_CLOUD_FRAG = NOISE_GLSL + `
+    uniform float uT;
+    uniform float uMaxT;
+    uniform vec3 uColor;
+    varying vec3 vPos;
+    varying vec3 vNormalW;
+    varying vec3 vViewDirW;
+    void main(){
+      float fres = pow(1.0 - max(dot(vNormalW, vViewDirW), 0.0), 2.0);
+      float n = fbm(vPos * 1.5 + vec3(uT * 0.5));
+      // 時間経過でフェード
+      float fade = 1.0 - smoothstep(0.0, uMaxT, uT);
+      float a = (fres * 0.6 + n * 0.4) * fade * 0.55;
+      a = clamp(a, 0.0, 1.0);
+      vec3 col = mix(uColor, vec3(1.6, 1.0, 0.5), n * 0.4);
+      gl_FragColor = vec4(col * a * 1.4, a);
+    }
+  `;
+
+  // ── 残骸星雲: ゆっくり漂う粒子 ──
+  const NEBULA_VERT = `
+    attribute vec3 velocity;
+    attribute float seed;
+    uniform float uT;
+    uniform float uDecay;  // 0=新鮮 1=消滅
+    varying float vAlpha;
+    varying float vSeed;
+    void main(){
+      // 拡散後にゆっくり漂う: position = velocity * t * 0.4 + initial
+      vec3 pos = velocity * uT * 0.4;
+      vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+      gl_PointSize = (14.0 + 10.0 * fract(seed)) / -mv.z;
+      vSeed = seed;
+      vAlpha = (1.0 - uDecay) * (0.5 + 0.4 * fract(seed * 7.0));
+      gl_Position = projectionMatrix * mv;
+    }
+  `;
+  const NEBULA_FRAG = `
+    uniform vec3 uColor;
+    varying float vAlpha;
+    varying float vSeed;
+    void main(){
+      vec2 d = gl_PointCoord - vec2(0.5);
+      float dist = length(d);
+      if (dist > 0.5) discard;
+      float fall = smoothstep(0.5, 0.0, dist);
+      // 粒ごとに色合いを少しずらす (青→紫→ピンクっぽい星雲)
+      vec3 c1 = vec3(0.45, 0.18, 0.65);
+      vec3 c2 = vec3(0.85, 0.35, 0.55);
+      vec3 col = mix(c1, c2, fract(vSeed * 13.0));
+      col = mix(col, uColor, 0.35);
+      gl_FragColor = vec4(col * fall * vAlpha * 1.2, fall * vAlpha);
     }
   `;
 
@@ -578,6 +739,110 @@ window.Cosmos3D = (function () {
     });
     particleSystem = new THREE.Points(geo, particleMat);
     scene.add(particleSystem);
+  }
+
+  // ── 超新星リソース初期化 (1 度だけ作成、reset で再起動) ──
+  function _initSupernovaResources() {
+    const q = QUALITY_SN[qualityLevel];
+
+    // 全画面閃光 Sprite (radial gradient、デフォルト不可視)
+    const flashMat = new THREE.SpriteMaterial({
+      map: _makeGlowTexture(),
+      color: 0xffffff,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      opacity: 0,
+    });
+    snFlashSprite = new THREE.Sprite(flashMat);
+    snFlashSprite.scale.set(15, 15, 1);
+    snFlashSprite.visible = false;
+    scene.add(snFlashSprite);
+
+    // 衝撃波 球シェル × 3 (staggered delay で連続的に拡大)
+    const swColor = new THREE.Color(0xffd870);
+    for (let i = 0; i < 3; i++) {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uOpacity: { value: 0 }, uColor: { value: swColor } },
+        vertexShader:   SHOCKWAVE_VERT,
+        fragmentShader: SHOCKWAVE_FRAG,
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), mat);
+      mesh.visible = false;
+      scene.add(mesh);
+      snShockwaves.push({ mesh, mat, delay: i * 0.15, speed: 4.5 + i * 1.2 });
+    }
+
+    // 爆発粒子: 最大数で確保し、tier ごとに有効粒子を制御
+    const N = q.explosionParts;
+    const positions = new Float32Array(N * 3); // dummy
+    const velocities = new Float32Array(N * 3);
+    const lifetimes  = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      // ランダム単位球方向 + ランダム速度
+      const u = Math.random() * 2 - 1;
+      const a = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u);
+      const speed = 0.3 + Math.random() * 1.5;
+      velocities[i*3]     = s * Math.cos(a) * speed;
+      velocities[i*3 + 1] = u * speed;
+      velocities[i*3 + 2] = s * Math.sin(a) * speed;
+      lifetimes[i] = 1.5 + Math.random() * 2.0;
+    }
+    const exGeo = new THREE.BufferGeometry();
+    exGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    exGeo.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+    exGeo.setAttribute('lifetime', new THREE.BufferAttribute(lifetimes, 1));
+    snExplosionMat = new THREE.ShaderMaterial({
+      uniforms: { uT: { value: 0 } },
+      vertexShader:   EXPLOSION_VERT,
+      fragmentShader: EXPLOSION_FRAG,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    snExplosionPoints = new THREE.Points(exGeo, snExplosionMat);
+    snExplosionPoints.visible = false;
+    scene.add(snExplosionPoints);
+
+    // エネルギー雲 (膨張球)
+    snEnergyMat = new THREE.ShaderMaterial({
+      uniforms: { uT: { value: 0 }, uMaxT: { value: 3.0 }, uColor: { value: new THREE.Color(0xff7a30) } },
+      vertexShader:   SUN_VERT,
+      fragmentShader: ENERGY_CLOUD_FRAG,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    snEnergyCloud = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), snEnergyMat);
+    snEnergyCloud.visible = false;
+    scene.add(snEnergyCloud);
+
+    // 残骸星雲 (Points)
+    const M = q.nebulaParts;
+    const nebPos = new Float32Array(M * 3);
+    const nebVel = new Float32Array(M * 3);
+    const nebSeed = new Float32Array(M);
+    for (let i = 0; i < M; i++) {
+      const u = Math.random() * 2 - 1;
+      const a = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u);
+      const sp = 0.15 + Math.random() * 0.4;
+      nebVel[i*3]     = s * Math.cos(a) * sp;
+      nebVel[i*3 + 1] = u * sp;
+      nebVel[i*3 + 2] = s * Math.sin(a) * sp;
+      nebSeed[i] = Math.random() * 100;
+    }
+    const nebGeo = new THREE.BufferGeometry();
+    nebGeo.setAttribute('position', new THREE.BufferAttribute(nebPos, 3));
+    nebGeo.setAttribute('velocity', new THREE.BufferAttribute(nebVel, 3));
+    nebGeo.setAttribute('seed',     new THREE.BufferAttribute(nebSeed, 1));
+    snNebulaMat = new THREE.ShaderMaterial({
+      uniforms: { uT: { value: 0 }, uDecay: { value: 1 }, uColor: { value: new THREE.Color(0xff8060) } },
+      vertexShader:   NEBULA_VERT,
+      fragmentShader: NEBULA_FRAG,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    snNebulaPoints = new THREE.Points(nebGeo, snNebulaMat);
+    snNebulaPoints.visible = false;
+    scene.add(snNebulaPoints);
   }
 
   // ── カメラ操作 ──
@@ -718,40 +983,27 @@ window.Cosmos3D = (function () {
       camTheta += 0.0015;
       _updateCamera();
     }
+    // カメラ振動 (超新星の予兆・閃光時のみ)
+    if (_camShake > 0) {
+      camera.position.x += (Math.random() - 0.5) * _camShake;
+      camera.position.y += (Math.random() - 0.5) * _camShake;
+      camera.position.z += (Math.random() - 0.5) * _camShake * 0.5;
+    }
     // 惑星の公転 + 自転
     for (const p of planetObjs) {
       p.angle += p.speed;
       p.mesh.position.set(Math.cos(p.angle) * p.orbitRadius, 0, Math.sin(p.angle) * p.orbitRadius);
       p.mesh.rotation.y += 0.01;
     }
-    // 超新星演出: 0→1 にかけて急膨張+白くフラッシュ → 1.0以降で星屑に縮小
+    // 超新星演出: 4 フェーズ (予兆 → 閃光 → 拡散 → 残骸)
     if (supernovaT > 0) {
-      supernovaT += 1 / 60; // 約60fps想定
-      const t = Math.min(supernovaT, 2.5);
-      if (t < 1.0) {
-        // 膨張+発光
-        const expand = 1 + t * 6;
-        if (starMesh) starMesh.scale.setScalar(cur.radius * expand);
-        for (const L of coronaLayers) {
-          L.mesh.scale.setScalar(cur.radius * (expand + 0.3));
-          L.mat.uniforms.uColor.value.setRGB(1, 1, 1); // 白くフラッシュ
-        }
-      } else if (t < 2.0) {
-        // 急縮小+暗転
-        const k = 1 - (t - 1.0);
-        if (starMesh) starMesh.scale.setScalar(cur.radius * k * 0.5);
-        for (const L of coronaLayers) {
-          L.mesh.scale.setScalar(cur.radius * k);
-          L.mat.uniforms.uColor.value.setHex(target.glowColor); // 色を元に戻す
-        }
-      } else {
-        // 終了: 通常スケールへ戻す
-        supernovaT = 0;
-        if (starMesh) starMesh.scale.setScalar(cur.radius);
-        for (const L of coronaLayers) L.mesh.scale.setScalar(cur.radius);
-        if (particleSystem) particleSystem.scale.setScalar(cur.radius);
-      }
+      // dt 計算 (実時間ベース、frame rate 非依存)
+      const dt = _lastFrameT ? Math.min(0.1, (now - _lastFrameT) / 1000) : 1/60;
+      supernovaT += dt;
+      const t = supernovaT;
+      _updateSupernovaAnim(t, dt);
     }
+    _lastFrameT = now;
     // 描画: EffectComposer があれば Bloom 付き、なければ通常レンダラ
     if (composer) composer.render();
     else renderer.render(scene, camera);
@@ -870,7 +1122,130 @@ window.Cosmos3D = (function () {
   // ── 外部 API: 超新星演出を発火（約2秒）──
   function triggerSupernova() {
     if (!initialized) return;
-    supernovaT = 0.01; // > 0 で演出開始（_animate 内で進行）
+    supernovaT = 0.001;
+    _lastFrameT = 0; // dt 計算をリセット (初フレームで小さい dt)
+    // 衝撃波の再起動 (前回演出で破棄してるかもしれないので visible リセット)
+    for (const sw of snShockwaves) {
+      sw.mesh.visible = true;
+      sw.mat.uniforms.uOpacity.value = 0;
+      sw.mesh.scale.setScalar(0.5);
+    }
+    if (snFlashSprite)    { snFlashSprite.visible = true;    snFlashSprite.material.opacity = 0; }
+    if (snExplosionPoints){ snExplosionPoints.visible = false; }
+    if (snEnergyCloud)    { snEnergyCloud.visible = false; }
+    if (snNebulaPoints)   { snNebulaPoints.visible = false; }
+  }
+
+  // 超新星演出のメインアップデート (フェーズごとに各要素を制御)
+  function _updateSupernovaAnim(t, dt) {
+    // フェーズ A: 予兆 (恒星不安定化、脈動、軽振動)
+    if (t < SN_WARN_END) {
+      const p = t / SN_WARN_END; // 0..1
+      const ease = p * p; // 加速度的に
+      if (sunMat) sunMat.uniforms.uInstability.value = ease;
+      // 高速脈動 (sin 周波数を増す)
+      const pulseFreq = 6 + ease * 30;
+      const pulseAmp  = 0.05 + ease * 0.15;
+      const pulseScale = 1 + Math.sin(t * pulseFreq) * pulseAmp;
+      if (starMesh)  starMesh.scale.setScalar(cur.radius * pulseScale);
+      for (const L of coronaLayers) L.mesh.scale.setScalar(cur.radius * pulseScale);
+      _camShake = ease * 0.04;
+      return;
+    }
+    // フェーズ B: 閃光・爆発の瞬間
+    if (t < SN_FLASH_END) {
+      const localT = t - SN_WARN_END;       // 0..0.4
+      const flashP = localT / (SN_FLASH_END - SN_WARN_END);
+      // 閃光: 立ち上がり 0→1 (~0.15s) → fade 1→0 (~0.25s)
+      let flashOpacity;
+      const peakT = (SN_FLASH_PEAK - SN_WARN_END) / (SN_FLASH_END - SN_WARN_END);
+      if (flashP < peakT) flashOpacity = flashP / peakT;
+      else flashOpacity = 1 - (flashP - peakT) / (1 - peakT);
+      flashOpacity = Math.max(0, Math.min(1, flashOpacity));
+      if (snFlashSprite) snFlashSprite.material.opacity = flashOpacity * 0.95;
+
+      // 恒星本体を急速縮小 → 閃光終わり頃に消える
+      const k = Math.max(0, 1 - flashP * 1.8);
+      if (starMesh)  starMesh.scale.setScalar(cur.radius * k);
+      for (const L of coronaLayers) L.mesh.scale.setScalar(cur.radius * k);
+      _camShake = 0.12 * (1 - flashP);
+
+      // 爆発粒子を起動
+      if (snExplosionPoints && !snExplosionPoints.visible) snExplosionPoints.visible = true;
+      if (snExplosionMat) snExplosionMat.uniforms.uT.value = localT;
+
+      // エネルギー雲スタート
+      if (snEnergyCloud && !snEnergyCloud.visible) snEnergyCloud.visible = true;
+      if (snEnergyMat) snEnergyMat.uniforms.uT.value = localT;
+
+      // 衝撃波拡大開始
+      for (const sw of snShockwaves) {
+        const swT = Math.max(0, localT - sw.delay);
+        sw.mesh.scale.setScalar(0.5 + swT * sw.speed);
+        sw.mat.uniforms.uOpacity.value = Math.max(0, 1 - swT * 2);
+      }
+      return;
+    }
+    // フェーズ C: 拡散
+    if (t < SN_EXPAND_END) {
+      const localT = t - SN_WARN_END;
+      // 爆発粒子: 経過時間で位置進行 (シェーダ内で velocity * uT)
+      if (snExplosionMat) snExplosionMat.uniforms.uT.value = localT;
+      // 衝撃波: 拡大しつつフェード
+      for (const sw of snShockwaves) {
+        const swT = Math.max(0, localT - sw.delay);
+        sw.mesh.scale.setScalar(0.5 + swT * sw.speed);
+        sw.mat.uniforms.uOpacity.value = Math.max(0, 1 - swT * 0.4);
+      }
+      // エネルギー雲拡大
+      if (snEnergyMat) snEnergyMat.uniforms.uT.value = localT;
+      if (snEnergyCloud) snEnergyCloud.scale.setScalar(0.8 + localT * 2.0);
+      // 閃光フェード
+      if (snFlashSprite) snFlashSprite.material.opacity = Math.max(0, snFlashSprite.material.opacity * 0.92);
+      // 恒星本体は完全に隠す
+      if (starMesh) starMesh.scale.setScalar(0.001);
+      for (const L of coronaLayers) L.mesh.scale.setScalar(0.001);
+      _camShake = Math.max(0, 0.05 * (1 - (t - SN_FLASH_END) / 1.5));
+
+      // 残骸星雲: 拡散後半で出現
+      const expandFrac = (t - SN_FLASH_END) / (SN_EXPAND_END - SN_FLASH_END);
+      if (expandFrac > 0.5 && snNebulaPoints && !snNebulaPoints.visible) {
+        snNebulaPoints.visible = true;
+      }
+      if (snNebulaMat) {
+        snNebulaMat.uniforms.uT.value    = (t - SN_FLASH_END) - 1.5;
+        snNebulaMat.uniforms.uDecay.value = 0; // まだ濃い
+      }
+      return;
+    }
+    // フェーズ D: 残骸 (星雲漂う・減衰)
+    if (t < SN_TOTAL) {
+      const localT = t - SN_EXPAND_END;
+      const fade = localT / (SN_TOTAL - SN_EXPAND_END); // 0..1
+      if (snNebulaMat) {
+        snNebulaMat.uniforms.uT.value     = t - SN_FLASH_END;
+        snNebulaMat.uniforms.uDecay.value = fade;
+      }
+      // 既存要素は片付け
+      if (snExplosionPoints) snExplosionPoints.visible = false;
+      if (snEnergyCloud)     snEnergyCloud.visible = false;
+      for (const sw of snShockwaves) sw.mesh.visible = false;
+      if (snFlashSprite)     snFlashSprite.material.opacity = 0;
+      _camShake = 0;
+      return;
+    }
+    // 終了: リセット
+    supernovaT = 0;
+    _camShake = 0;
+    if (sunMat) sunMat.uniforms.uInstability.value = 0;
+    if (snFlashSprite)    { snFlashSprite.visible = false; snFlashSprite.material.opacity = 0; }
+    for (const sw of snShockwaves) sw.mesh.visible = false;
+    if (snExplosionPoints) snExplosionPoints.visible = false;
+    if (snEnergyCloud)     snEnergyCloud.visible = false;
+    if (snNebulaPoints)    snNebulaPoints.visible = false;
+    // 恒星を通常スケールへ戻す
+    if (starMesh) starMesh.scale.setScalar(cur.radius);
+    for (const L of coronaLayers) L.mesh.scale.setScalar(cur.radius);
   }
 
   return { init, update, setPlanets, triggerSupernova };

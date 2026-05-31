@@ -758,8 +758,8 @@ function _confirmSupernova() {
   if (window.Cosmos3D && typeof Cosmos3D.triggerSupernova === 'function') {
     Cosmos3D.triggerSupernova();
   }
-  // 数秒後に状態を再描画（演出と同期）
-  setTimeout(() => renderCosmos(), 200);
+  // 残骸フェーズ終わり頃 (新恒星出現の自然なタイミング) に状態を再描画
+  setTimeout(() => renderCosmos(), 7000);
 }
 
 // ---- 惑星追加モーダル ----
