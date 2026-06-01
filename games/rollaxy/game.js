@@ -444,6 +444,27 @@ let _clusterVanishCount = 0; // 銀河団同士の消滅回数（ゲーム内）
 // speedrun: 銀河団作成までのタイム計測
 let _speedrunCleared   = false;
 let _speedrunClearMs   = 0;
+// ポーズ (メニュー開放) 中の時間を経過時間から除外する
+let _pausedTotalMs     = 0;   // 累計のポーズ時間 (ms)
+let _pauseStartedAt    = 0;   // 現在ポーズ中ならその開始時刻、ポーズ外なら 0
+function _onPauseStart() {
+  if (_pauseStartedAt > 0 || waiting || dead) return;
+  _pauseStartedAt = Date.now();
+}
+function _onPauseEnd() {
+  if (_pauseStartedAt === 0) return;
+  const dur = Date.now() - _pauseStartedAt;
+  _pausedTotalMs += dur;
+  // time モード: 制限時間を延長 (ポーズ時間ぶん終了時刻を後ろ倒し)
+  if (_timeLimitMs > 0 && _gameEndAt > 0) _gameEndAt += dur;
+  _pauseStartedAt = 0;
+}
+// 実プレイ経過 ms (ポーズ時間を除外)
+function _getPlayElapsedMs() {
+  let elapsed = Date.now() - _gameStartTime - _pausedTotalMs;
+  if (_pauseStartedAt > 0) elapsed -= (Date.now() - _pauseStartedAt);
+  return Math.max(0, elapsed);
+}
 // mm:ss.SSS 形式に変換 (例: 95623 → "1:35.623")
 function _formatSpeedrunTime(ms) {
   if (!ms || ms < 0) return '--:--.---';
@@ -1011,7 +1032,7 @@ function flushMerges() {
     // speedrun: 銀河団 (ni === CFG.BODIES.length - 1) 作成でクリア発火 (重複ガード付き)
     if (ni === CFG.BODIES.length - 1 && curMode()?.type === 'speedrun' && !_speedrunCleared) {
       _speedrunCleared = true;
-      _speedrunClearMs = Date.now() - _gameStartTime;
+      _speedrunClearMs = _getPlayElapsedMs();
       setTimeout(() => doSpeedrunClear(), 50);
     }
 
@@ -1452,7 +1473,7 @@ function updateTimerHUD() {
   // speedrun モードはカウントアップで経過時間を表示
   if (curMode()?.type === 'speedrun' && !waiting) {
     el.style.display = '';
-    const elapsed = (dead || _speedrunCleared) ? _speedrunClearMs : (Date.now() - _gameStartTime);
+    const elapsed = (dead || _speedrunCleared) ? _speedrunClearMs : _getPlayElapsedMs();
     el.textContent = `⏱ ${_formatSpeedrunTime(elapsed)}`;
     el.classList.remove('timer-warn');
     return;
@@ -1974,6 +1995,7 @@ function beginGame(modeId = currentModeId, stageId = currentStageId) {
   if (typeof settleEnergy === 'function') settleEnergy(); // 放置分を確定し lastSaved を更新
   _gameStartTime = Date.now(); // ゲーム開始時刻（elapsed_ms 計算用）
   _speedrunCleared = false; _speedrunClearMs = 0; // speedrun 状態リセット
+  _pausedTotalMs = 0; _pauseStartedAt = 0;        // ポーズ計測リセット
   // 制限時間を確定（time モードは固定 timeLimit、tutorial はステージ毎の timeLimit）
   _timeLimitMs = 0;
   if (m.type === 'time' && m.timeLimit) {

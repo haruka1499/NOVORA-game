@@ -45,11 +45,13 @@ function _showCreditsPanel() {
 function openSettings() {
   if (dead) return; // ゲームオーバー中は設定を開かない（スタート待ち中は開いてよい）
   paused = true;    // 物理を停止（待機中はすでに止まっているが、フラグとして立てる）
+  if (typeof _onPauseStart === 'function') _onPauseStart(); // タイマー計測も停止
   _showMenuPanel();
   show(settingsOverlay);
 }
 function closeSettings() {
   paused = false;
+  if (typeof _onPauseEnd === 'function') _onPauseEnd(); // タイマー計測再開・time モードは制限時間延長
   hide(settingsOverlay);
   _showMenuPanel(); // 次回オープン時のためにメニューへリセット
 }

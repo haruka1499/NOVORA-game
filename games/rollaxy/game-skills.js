@@ -323,6 +323,12 @@ function confirmSkillAction() {
     if (skillCharges.upgrade !== Infinity) skillCharges.upgrade--;
     notifySkillUsed(); // スキル（強化）が適用された
     noteSkillUsed('upgrade'); // チュートリアル目標判定用
+    // speedrun: 強化で銀河団 (bi=CFG.BODIES.length-1) を作った場合もクリア判定
+    if (ni === CFG.BODIES.length - 1 && curMode()?.type === 'speedrun' && !_speedrunCleared) {
+      _speedrunCleared = true;
+      _speedrunClearMs = Date.now() - _gameStartTime;
+      setTimeout(() => doSpeedrunClear(), 50);
+    }
   } else if (activeSkill === 'delete') {
     playDeleteSound();
     bmap.delete(skillSelectedId); glowMap.delete(skillSelectedId);
