@@ -67,7 +67,9 @@ async function handleSharePost(request, env) {
   catch { return json({ error: 'Invalid JSON' }, 400, corsHeaders(origin)); }
 
   const { score, highest_body_tier, snapshot_payload, ui_lang = 'ja', version = 1, player_id = null, display_name = null, mode: rawMode = 'endless' } = body;
-  const mode = rawMode === 'time' ? 'time' : 'endless';
+  // 許可モード: endless / time / speedrun（未知値は endless にフォールバック）
+  const VALID_MODES = ['endless', 'time', 'speedrun'];
+  const mode = VALID_MODES.includes(rawMode) ? rawMode : 'endless';
 
   // ── 基本バリデーション ──
   if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 999999) {
@@ -219,7 +221,8 @@ async function handleRanking(request, env) {
   const url    = new URL(request.url);
   const period = url.searchParams.get('period') ?? 'all';
   const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? DEF_LIMIT, 10), MAX_LIMIT);
-  const mode   = url.searchParams.get('mode') === 'time' ? 'time' : 'endless';
+  const _rawMode = url.searchParams.get('mode');
+  const mode   = (_rawMode === 'time' || _rawMode === 'speedrun') ? _rawMode : 'endless';
 
   // tz: クライアントのUTCオフセット（分）。例: JST=+540、EST=-300
   // -(new Date().getTimezoneOffset()) で取得した値をそのまま渡す。

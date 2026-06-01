@@ -93,13 +93,32 @@ function getGuestCode() {
 }
 
 // 自分のシェアID一覧を localStorage に追記（最大50件）
-// ベストスコア更新時は best_share_id / best_score も更新
+// ベスト更新時は best_share_id / best_score をモード別に更新。
+// currentScore は「送信スコア」: speedrun は 10_000_000 - ms（大きいほど速い）。
 function addMyShareId(shareId, currentScore, mode = 'endless') {
   const ids = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHARE_IDS) || '[]');
   if (!ids.includes(shareId)) ids.push(shareId);
   localStorage.setItem(STORAGE_KEYS.SHARE_IDS, JSON.stringify(ids.slice(-50)));
-  const bestKey      = mode === 'time' ? STORAGE_KEYS.BEST_SCORE_TIME    : STORAGE_KEYS.BEST_SCORE;
-  const bestShareKey = mode === 'time' ? STORAGE_KEYS.BEST_SHARE_ID_TIME : STORAGE_KEYS.BEST_SHARE_ID;
+  // モード別の best_score / best_share_id キーを選ぶ
+  let bestKey, bestShareKey;
+  if (mode === 'time') {
+    bestKey = STORAGE_KEYS.BEST_SCORE_TIME; bestShareKey = STORAGE_KEYS.BEST_SHARE_ID_TIME;
+  } else if (mode === 'speedrun') {
+    // speedrun のベストタイムは BEST_SPEEDRUN_MS(ms) が真。ここではシェアID のみ更新。
+    bestShareKey = STORAGE_KEYS.BEST_SHARE_ID_SPEEDRUN;
+    bestKey = null;
+  } else {
+    bestKey = STORAGE_KEYS.BEST_SCORE; bestShareKey = STORAGE_KEYS.BEST_SHARE_ID;
+  }
+  if (mode === 'speedrun') {
+    // ベストタイム(ms)が小さいほど良い。今回がベスト以下なら share_id を更新。
+    const bestMs   = Number(localStorage.getItem(STORAGE_KEYS.BEST_SPEEDRUN_MS) || 0);
+    const currentMs = 10_000_000 - currentScore;
+    if (!bestMs || currentMs <= bestMs) {
+      localStorage.setItem(bestShareKey, shareId);
+    }
+    return;
+  }
   const best = Number(localStorage.getItem(bestKey) || 0);
   if (currentScore >= best) {
     localStorage.setItem(bestKey,      String(currentScore));

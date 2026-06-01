@@ -1431,9 +1431,15 @@ function doGameOver() {
     is_new_best:        isHi ? 1 : 0,
     lang:               typeof currentLang !== 'undefined' ? currentLang : 'ja',
   });
-  // ランキング送信は endless / time モード（tutorial/stage は対象外）
+  // ランキング送信対象:
+  //   endless / time は常に、speedrun は「クリア(銀河団到達)」時のみ送信。
+  //   speedrun の失敗(天体あふれ)・tutorial/stage は対象外。
   _pendingShareId = null;
-  if (curMode()?.type === 'endless' || curMode()?.type === 'time') {
+  const _shareMode = curMode()?.type;
+  const _submitRanking = _shareMode === 'endless'
+    || _shareMode === 'time'
+    || (_shareMode === 'speedrun' && _endReason === 'speedrun_clear');
+  if (_submitRanking) {
     shareBtn.classList.remove('is-hidden');
     shareBtn.disabled = true;
     shareBtn.textContent = T('sharePreparing');
