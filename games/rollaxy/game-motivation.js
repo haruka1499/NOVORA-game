@@ -41,14 +41,15 @@ function _motivFmtTime(ms) {
   return `${min}:${String(sec).padStart(2,'0')}.${String(mil).padStart(3,'0')}`;
 }
 
+// T() ヘルパー（lang.js 未ロードでも安全に）
+function _mT(key) { return (typeof T === 'function') ? T(key) : key; }
 function _motivModeLabel(m) {
-  if (m === 'endless')  return 'エンドレス';
-  if (m === 'speedrun') return 'スピードラン';
-  if (m === 'time')     return 'タイムアタック';
+  const def = (typeof CFG !== 'undefined') ? CFG.MODES.find(x => x.id === m) : null;
+  if (def && typeof modeName === 'function') return modeName(def);
   return m;
 }
 function _motivPeriodLabel(p) {
-  return p === 'weekly' ? '今週' : '全期間';
+  return p === 'weekly' ? _mT('motivPeriodWeekly') : _mT('motivPeriodAll');
 }
 function _motivUnlockedModes() {
   const arr = ['endless'];
@@ -91,9 +92,9 @@ function _motivBuildCandidates() {
   const speedrunUnlocked = typeof isModeUnlocked === 'function' && isModeUnlocked('speedrun');
   const timeUnlocked     = typeof isModeUnlocked === 'function' && isModeUnlocked('time');
   if (!speedrunUnlocked) {
-    out.push({ weight: 40, text: '⚪ 中性子星を作るとスピードランモードが解放！' });
+    out.push({ weight: 40, text: _mT('motivUnlockSpeedrun') });
   } else if (!timeUnlocked) {
-    out.push({ weight: 35, text: '🌐 銀河団を作るとタイムアタックモードが解放！' });
+    out.push({ weight: 35, text: _mT('motivUnlockTime') });
   }
 
   // B. 自己ベスト
@@ -101,17 +102,17 @@ function _motivBuildCandidates() {
   const bTime = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SCORE_TIME)  || '0', 10);
   const bSpd  = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SPEEDRUN_MS) || '0', 10);
   if (bEnd > 0) {
-    out.push({ weight: 12, text: `🏆 エンドレス自己ベスト ${_motivFmtNum(bEnd)}点 — 超えにいこう！` });
+    out.push({ weight: 12, text: _mT('motivBestEndless')(_motivFmtNum(bEnd)) });
   } else {
-    out.push({ weight: 16, text: '🚀 エンドレスで初めての自己ベストを残そう！' });
+    out.push({ weight: 16, text: _mT('motivBestEndlessNone') });
   }
   if (speedrunUnlocked) {
-    if (bSpd > 0) out.push({ weight: 12, text: `⚡ スピードランベスト ${_motivFmtTime(bSpd)} — 縮めよう！` });
-    else          out.push({ weight: 16, text: '⚡ スピードランで初めてのタイムを刻もう！' });
+    if (bSpd > 0) out.push({ weight: 12, text: _mT('motivBestSpeedrun')(_motivFmtTime(bSpd)) });
+    else          out.push({ weight: 16, text: _mT('motivBestSpeedrunNone') });
   }
   if (timeUnlocked) {
-    if (bTime > 0) out.push({ weight: 12, text: `⏰ タイムアタック自己ベスト ${_motivFmtNum(bTime)}点 — 更新しよう！` });
-    else           out.push({ weight: 16, text: '⏰ タイムアタックで初めての自己ベストを！' });
+    if (bTime > 0) out.push({ weight: 12, text: _mT('motivBestTime')(_motivFmtNum(bTime)) });
+    else           out.push({ weight: 16, text: _mT('motivBestTimeNone') });
   }
 
   // C. ランキング (キャッシュがあるときだけ)
@@ -122,28 +123,28 @@ function _motivBuildCandidates() {
       const pLab = _motivPeriodLabel(r.period);
       const myIdx = myPid ? r.entries.findIndex(e => e.player_id === myPid) : -1;
       if (myIdx === 0) {
-        out.push({ weight: 14, text: `👑 ${mLab}${pLab} 現在1位！防衛しよう` });
+        out.push({ weight: 14, text: _mT('motivRankTop')(mLab, pLab) });
       } else if (myIdx > 0) {
         const me = r.entries[myIdx];
         const up = r.entries[myIdx - 1];
         if (r.mode === 'speedrun') {
           // score = 10_000_000 - ms。score 差 = ms 差 (大きい方が上)
           const diffMs = up.score - me.score;
-          out.push({ weight: 13, text: `🎯 ${mLab}${pLab}: あと ${_motivFmtTime(diffMs)} 縮めれば ${myIdx}位！` });
+          out.push({ weight: 13, text: _mT('motivRankCloseTime')(mLab, pLab, _motivFmtTime(diffMs), myIdx) });
         } else {
           const diff = up.score - me.score;
-          out.push({ weight: 13, text: `🎯 ${mLab}${pLab}: あと ${_motivFmtNum(diff)}点 で ${myIdx}位！` });
+          out.push({ weight: 13, text: _mT('motivRankCloseScore')(mLab, pLab, _motivFmtNum(diff), myIdx) });
         }
       } else if (r.entries.length > 0) {
         // 圏外。トップとの差を提示
         const top = r.entries[0];
         if (r.mode === 'speedrun') {
-          out.push({ weight: 6, text: `📊 ${mLab}${pLab} 1位は ${_motivFmtTime(10_000_000 - top.score)} — 挑もう！` });
+          out.push({ weight: 6, text: _mT('motivRankTopTime')(mLab, pLab, _motivFmtTime(10_000_000 - top.score)) });
         } else {
-          out.push({ weight: 6, text: `📊 ${mLab}${pLab} 1位は ${_motivFmtNum(top.score)}点 — 挑もう！` });
+          out.push({ weight: 6, text: _mT('motivRankTopScore')(mLab, pLab, _motivFmtNum(top.score)) });
         }
       } else {
-        out.push({ weight: 5, text: `📊 ${mLab}${pLab}ランキング — 一番乗りのチャンス！` });
+        out.push({ weight: 5, text: _mT('motivRankEmpty')(mLab, pLab) });
       }
     }
   }
@@ -169,13 +170,13 @@ function _motivPickAchievements() {
       if (ratio < 0.4) continue; // 進捗 40% 未満は遠いので除外
       const remain = max - cur;
       if (remain <= 0) continue;
-      const name = it['name' + (typeof currentLang === 'string'
-        ? currentLang.charAt(0).toUpperCase() + currentLang.slice(1)
-        : 'Ja')] || it.nameJa;
+      const capL = (typeof currentLang === 'string')
+        ? currentLang.charAt(0).toUpperCase() + currentLang.slice(1) : 'Ja';
+      const name = it['name' + capL] || it.nameJa;
       items.push({
         weight: Math.max(5, Math.round(ratio * 18)), // 近いほど重み大
         ratio,
-        text: `🎖 あと ${_motivFmtNum(remain)} で「${name}」達成！`,
+        text: _mT('motivAch')(_motivFmtNum(remain), name),
       });
     }
   }
