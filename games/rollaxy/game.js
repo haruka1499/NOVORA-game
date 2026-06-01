@@ -1793,6 +1793,89 @@ on(startBtn, () => {
   }
 });
 
+// ── ランキング (ホーム画面オーバーレイ) ──
+// 旧 game-meta.js から再実装。/api/rollaxy/ranking を fetch して #rank-list-home に描画。
+// 期間タブ: 'weekly'/'all'（本日廃止済）、モードタブ: endless/time/speedrun。
+let _rankHomeMode   = 'endless';
+let _rankHomePeriod = 'weekly';
+
+// score → 表示文字列。speedrun は時間形式 (10_000_000 - ms 逆換算)。
+function _rankHomeFormatScore(rawScore, mode) {
+  if (mode === 'speedrun') {
+    const ms = Math.max(0, 10_000_000 - (rawScore || 0));
+    const min = Math.floor(ms / 60000);
+    const sec = Math.floor((ms % 60000) / 1000);
+    const mil = ms % 1000;
+    return `${min}:${String(sec).padStart(2,'0')}.${String(mil).padStart(3,'0')}`;
+  }
+  return Math.floor(rawScore || 0).toLocaleString();
+}
+
+function openRankingHome() {
+  const el = document.getElementById('ranking-overlay');
+  if (!el) return;
+  el.classList.add('show');
+  renderRankingHome();
+}
+function closeRankingHome() {
+  const el = document.getElementById('ranking-overlay');
+  if (el) el.classList.remove('show');
+}
+
+async function renderRankingHome() {
+  const list = document.getElementById('rank-list-home');
+  if (!list) return;
+  // タブ active 表示の同期
+  document.querySelectorAll('#rank-mode-tabs .rank-mode').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === _rankHomeMode);
+  });
+  document.querySelectorAll('#rank-period-tabs .rank-period').forEach(b => {
+    b.classList.toggle('active', b.dataset.period === _rankHomePeriod);
+  });
+  list.innerHTML = `<div class="rank-status">${T('rankLoading') || '読込中…'}</div>`;
+  const tz = -(new Date().getTimezoneOffset());
+  try {
+    const res = await fetch(`/api/rollaxy/ranking?period=${_rankHomePeriod}&mode=${_rankHomeMode}&limit=20&tz=${tz}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const entries = data.entries || [];
+    if (entries.length === 0) {
+      list.innerHTML = `<div class="rank-status">${T('rankEmpty') || '記録なし'}</div>`;
+      return;
+    }
+    const scoreUnit = _rankHomeMode === 'speedrun' ? '' : (T('scoreUnit') || '点');
+    const escHtml = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    let html = '';
+    for (const e of entries) {
+      const rankClass = e.rank === 1 ? 'top1' : e.rank === 2 ? 'top2' : e.rank === 3 ? 'top3' : '';
+      const name = e.display_name ? escHtml(e.display_name) : '—';
+      html += `<div class="rank-row">`
+            + `<span class="rr-rank ${rankClass}">#${e.rank}</span>`
+            + `<span class="rr-name">${name}</span>`
+            + `<span class="rr-score">${_rankHomeFormatScore(e.score, _rankHomeMode)}${scoreUnit}</span>`
+            + `</div>`;
+    }
+    list.innerHTML = html;
+  } catch (_) {
+    list.innerHTML = `<div class="rank-status error">${T('rankError') || '取得失敗'}</div>`;
+  }
+}
+
+// タブ click 配線 (mode / period)
+document.querySelectorAll('#rank-mode-tabs .rank-mode').forEach(btn => {
+  on(btn, () => { _rankHomeMode = btn.dataset.mode; renderRankingHome(); });
+});
+document.querySelectorAll('#rank-period-tabs .rank-period').forEach(btn => {
+  on(btn, () => { _rankHomePeriod = btn.dataset.period; renderRankingHome(); });
+});
+// 背景タップで閉じる
+const _rankingOverlayEl = document.getElementById('ranking-overlay');
+if (_rankingOverlayEl) {
+  _rankingOverlayEl.addEventListener('click', (e) => {
+    if (e.target === _rankingOverlayEl) closeRankingHome();
+  });
+}
+
 // ── モード選択シート ──
 function _openModeSelectSheet() {
   const sheet   = document.getElementById('mode-select-sheet');
