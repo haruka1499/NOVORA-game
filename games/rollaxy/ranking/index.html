@@ -521,6 +521,10 @@ document.addEventListener('globalLangChange', () => {
 renderTabs();
 loadRanking();
 
+// 60 秒ごとに自動再取得 (表示名変更が反映されるよう)。
+// タブが非表示のときはブラウザが setInterval を間引くため、無駄打ちは少ない。
+setInterval(loadRanking, 60_000);
+
 // ranking_open イベント（ページ読み込み時に一度だけ送信）
 gtag('event', 'ranking_open', {
   game_id:   'rollaxy',

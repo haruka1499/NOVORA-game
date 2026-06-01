@@ -1811,15 +1811,21 @@ function _rankHomeFormatScore(rawScore, mode) {
   return Math.floor(rawScore || 0).toLocaleString();
 }
 
+// オーバーレイ表示中の定期再取得タイマー。
+// 表示名変更が反映されるまで最大 (KVキャッシュ 60s + ポーリング 60s) ≒ 2分
+let _rankHomeRefreshTimer = null;
 function openRankingHome() {
   const el = document.getElementById('ranking-overlay');
   if (!el) return;
   el.classList.add('show');
   renderRankingHome();
+  if (_rankHomeRefreshTimer) clearInterval(_rankHomeRefreshTimer);
+  _rankHomeRefreshTimer = setInterval(renderRankingHome, 60_000); // 1 分ごと
 }
 function closeRankingHome() {
   const el = document.getElementById('ranking-overlay');
   if (el) el.classList.remove('show');
+  if (_rankHomeRefreshTimer) { clearInterval(_rankHomeRefreshTimer); _rankHomeRefreshTimer = null; }
 }
 
 async function renderRankingHome() {

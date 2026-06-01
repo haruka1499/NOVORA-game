@@ -769,10 +769,15 @@ async function handlePlayerUpdate(request, env) {
     return json({ error: 'players table not ready' }, 503, corsHeaders(origin));
   }
 
+  // 名前変更が即座に反映されるよう、ranking キャッシュを無効化。
+  // キー形式: ${GAME_ID}:ranking:${mode}:${period}:${limit} (all/weekly は tz 抜き)
+  // daily は tz 別キーで件数が多いため、自然な TTL (60秒) 切れに任せる
   try {
-    for (const p of ['all', 'daily', 'weekly']) {
-      for (const l of [20, 50, 100]) {
-        await env.RANKING_CACHE.delete(`${GAME_ID}:ranking:${p}:${l}`);
+    for (const mode of ['endless', 'time', 'speedrun']) {
+      for (const p of ['all', 'weekly']) {
+        for (const l of [20, 50, 100]) {
+          await env.RANKING_CACHE.delete(`${GAME_ID}:ranking:${mode}:${p}:${l}`);
+        }
       }
     }
   } catch (_) {}
