@@ -515,8 +515,6 @@ function _clearAutoReturn() {
 function _showTutorialClearButtons(isTutClear) {
   const nextBtn  = document.getElementById('next-stage-btn');
   const shareB   = document.getElementById('share-btn');
-  const rankLink = document.getElementById('ranking-link');
-  const achBtn   = document.getElementById('overlay-ach-btn');
   if (isTutClear) {
     // チュートリアルクリア: retry=ホームに戻る、next=次へ進む、他を隠す
     if (retryBtn)  { retryBtn.textContent = T('backToHome'); retryBtn.style.display = ''; }
@@ -527,18 +525,15 @@ function _showTutorialClearButtons(isTutClear) {
       nextBtn.textContent  = T('nextStage');
       nextBtn.style.display = _isLast ? 'none' : '';
     }
-    if (shareB)   shareB.classList.add('is-hidden');
-    if (rankLink) rankLink.style.display = 'none';
-    if (achBtn)   achBtn.style.display   = 'none';
+    if (shareB) shareB.classList.add('is-hidden');
   } else {
     // 通常終了: タイムアタック時間切れはホームに戻る、それ以外はもう一度
     const _btnLabel = (_endReason === 'timeup') ? T('backToHome') : T('retry');
     if (retryBtn)  { retryBtn.textContent = _btnLabel; retryBtn.style.display = ''; }
     if (nextBtn)   nextBtn.style.display  = 'none';
-    if (rankLink)  rankLink.style.display = '';
-    if (achBtn)    achBtn.style.display   = '';
     // shareBtn の復元は _restoreShareButton() に任せる（呼び出し済み）
   }
+  // ランキング/実績ボタンは終了画面から廃止 (設定メニュー＋ホームナビからアクセス)
 }
 
 // ============================================================

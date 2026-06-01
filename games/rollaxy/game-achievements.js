@@ -357,7 +357,7 @@ _syncFromServer();
   const backBtn    = document.getElementById('ach-back-btn');
   const startBtn   = document.getElementById('start-ach-btn');
   const menuBtn    = document.getElementById('menu-ach-btn');
-  const overlayBtn = document.getElementById('overlay-ach-btn');
+  // overlay-ach-btn は終了画面から削除済
   // ※ ホーム下部バーの「実績」(#nav-ach) は game.js の showHomeTab() が統括するため
   //   ここでは個別バインドしない（二重起動防止）。
 
@@ -366,7 +366,6 @@ _syncFromServer();
   if (backBtn)    on(backBtn,    () => closeAchievements());
   if (startBtn)   on(startBtn,   () => openAchievements());
   if (menuBtn)    on(menuBtn,    () => openAchievements());
-  if (overlayBtn) on(overlayBtn, () => openAchievements());
 
   // トーストをタップ/クリックで即スキップ（次の実績へ）
   const toastEl = document.getElementById('ach-toast');
