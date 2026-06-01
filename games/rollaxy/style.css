@@ -2124,18 +2124,8 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   background: rgba(255,255,255,0.12);
   border-color: rgba(143,214,255,0.45);
 }
-/* スタート画面下端のフィードバックボタンを fixed 配置（下部ナビの上） */
-#feedback-start-btn {
-  position: fixed;
-  left: 50%; transform: translateX(-50%);
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-  z-index: 50;
-}
-
-/* ゲームオーバー/クリア画面のフィードバックボタン:
-   ホーム画面と同じ青系の色味、四角ベースで角を軽く丸める、横ほぼ目一杯まで広げる。
-   #overlay button のオレンジ pill スタイルを丸ごと上書きする必要があるため
-   詳細度を高めて !important で確実に効かせる。 */
+/* ホーム/オーバーレイ共通: フィードバックボタンを四角ベース・横幅広めの統一サイズ */
+#feedback-start-btn,
 #overlay button#feedback-overlay-btn {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(143,214,255,0.25);
@@ -2144,14 +2134,49 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   font-weight: 600;
   padding: 12px 16px;
   border-radius: 10px;       /* 角を軽く丸めた四角ベース */
-  width: min(360px, 92%);    /* スマホ横ほぼ目一杯、上限あり */
-  max-width: 360px;
+  width: min(360px, 92vw);   /* スマホ横ほぼ目一杯、上限あり */
   box-shadow: none;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, opacity 0.6s ease;
 }
+#feedback-start-btn:hover,
 #overlay button#feedback-overlay-btn:hover {
   background: rgba(255,255,255,0.12);
   border-color: rgba(143,214,255,0.45);
+}
+
+/* スタート画面下端: 下部ナビの上に fixed 配置 */
+#feedback-start-btn {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+}
+
+/* ゲームオーバー/クリア時のフィードバックボタン:
+   スキルバーの位置に fixed 配置、初期 opacity 0。
+   body.game-ended が付与されたタイミングで透明度のみフェードイン (位置は変えない)。 */
+#overlay button#feedback-overlay-btn {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 7;                /* overlay (z-index:6) より上、home-nav (1002) より下 */
+  opacity: 0;
+  pointer-events: none;
+}
+body.game-ended #overlay button#feedback-overlay-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.6s ease 0.4s; /* スキルバーが消えてから現れる */
+}
+
+/* スキルバー: ゲーム終了時に下方向へスッとフェードアウト */
+#skill-bar {
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+body.game-ended #skill-bar {
+  opacity: 0;
+  transform: translateY(24px);
+  pointer-events: none;
 }
 
 /* ── オフライン報酬モーダル ── */

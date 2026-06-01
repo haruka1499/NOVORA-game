@@ -574,6 +574,7 @@ function init() {
   _resetStats();
   // ゲームオーバー・設定オーバーレイを閉じる（スタート画面は表示しない）
   hide(overlay);         // ゲームオーバーオーバーレイ
+  document.body.classList.remove('game-ended'); // スキルバー/フィードバックの状態リセット
   if (_overlayTitleEl) _overlayTitleEl.textContent = T('gameOver'); // タイトルを既定へ戻す
   _showTutorialClearButtons(false); // チュートリアルクリア用ボタンを通常状態へ戻す
   _closeModeSelectSheet(); // モード選択シートが残っていれば閉じる
@@ -1383,6 +1384,7 @@ function _startGameOverAnim() {
   const ids = [...bmap.keys()];
   if (ids.length === 0) {
     show(overlay);
+    document.body.classList.add('game-ended'); // スキルバー fade out / feedback fade in
     showResourceBar();
     _fireOverlayParticles();
     _startAutoReturn();
@@ -1401,6 +1403,7 @@ function _startGameOverAnim() {
         // 最後の天体のポップアニメが終わる頃にオーバーレイを表示
         setTimeout(() => {
           show(overlay);
+          document.body.classList.add('game-ended'); // スキルバー fade out / feedback fade in
           showResourceBar();
           _fireOverlayParticles();
           _startAutoReturn();
