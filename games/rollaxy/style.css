@@ -2251,6 +2251,55 @@ body.game-ended #skill-bar {
   color: #e2c8ff;
 }
 
+/* エンドレス 続き/新規ダイアログ + 確認ダイアログ */
+#endless-resume-modal, #endless-confirm-modal {
+  display: none; position: fixed; inset: 0; z-index: 9450;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease both;
+}
+#endless-resume-modal.show, #endless-confirm-modal.show { display: flex; }
+#endless-resume-panel, #endless-confirm-panel {
+  background: linear-gradient(160deg, #1e1246 0%, #0d0820 100%);
+  border: 1px solid rgba(143,214,255,0.4); border-radius: 18px;
+  padding: 26px 28px 22px; width: min(330px, 90vw);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+  animation: modeUnlockPop 0.35s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+#endless-resume-title, #endless-confirm-title {
+  font-size: 17px; font-weight: bold; color: #e0d4ff; text-align: center; line-height: 1.4;
+}
+#endless-resume-info { font-size: 13px; color: #a99fd0; }
+/* 続きから = 大きな主ボタン */
+#endless-resume-continue {
+  width: 100%; padding: 14px; margin-top: 4px;
+  border: none; border-radius: 12px;
+  background: linear-gradient(135deg, #6a4fd0, #9a7cff);
+  color: #fff; font-size: 16px; font-weight: bold; cursor: pointer;
+  box-shadow: 0 4px 18px rgba(124,92,252,0.45);
+  -webkit-tap-highlight-color: transparent;
+}
+#endless-resume-continue:active { transform: scale(0.97); }
+/* 新しく始める = 小さく控えめ（事故防止） */
+#endless-resume-new {
+  background: transparent; border: none;
+  color: #8a82aa; font-size: 12px; cursor: pointer;
+  text-decoration: underline; padding: 4px 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+#endless-resume-new:hover { color: #b0a8d0; }
+/* 確認ダイアログのボタン */
+#endless-confirm-actions { display: flex; gap: 12px; width: 100%; margin-top: 4px; }
+#endless-confirm-cancel, #endless-confirm-ok {
+  flex: 1; padding: 12px 0; font-size: 14px; font-weight: bold;
+  border-radius: 999px; cursor: pointer; border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#endless-confirm-cancel { background: rgba(124,92,252,0.18); color: #cbb6ff; }
+#endless-confirm-ok { background: linear-gradient(135deg, #c0392b, #e74c3c); color: #fff; }
+#endless-confirm-ok:active { transform: scale(0.97); }
+
 /* モード解放ポップアップ */
 #mode-unlock-modal {
   display: none; position: fixed; inset: 0; z-index: 9400;

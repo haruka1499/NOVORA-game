@@ -46,6 +46,11 @@ function openSettings() {
   if (dead) return; // ゲームオーバー中は設定を開かない（スタート待ち中は開いてよい）
   paused = true;    // 物理を停止（待機中はすでに止まっているが、フラグとして立てる）
   if (typeof _onPauseStart === 'function') _onPauseStart(); // タイマー計測も停止
+  // エンドレス中はリセットボタンを「セーブしてホームに戻る」に。それ以外は通常の「リセット」
+  if (resetBtn) {
+    const isEndless = !waiting && typeof curMode === 'function' && curMode()?.type === 'endless';
+    resetBtn.textContent = isEndless ? T('endlessSaveHome') : T('reset');
+  }
   _showMenuPanel();
   show(settingsOverlay);
 }
@@ -62,7 +67,13 @@ on(menuSettingsBtn,   () => _showSettingsPanel());
 on(settingsBackBtn,   () => { playBackSound(); _showMenuPanel(); });
 on(settingsCreditsBtn,() => _showCreditsPanel());
 on(creditsBackBtn,    () => { playBackSound(); _showSettingsPanel(); });
-on(resetBtn,          () => { closeSettings(); init(); });
+on(resetBtn, () => {
+  // エンドレス中: 現在の盤面を保存してからホームへ（セーブは破棄しない）
+  const isEndless = !waiting && !dead && typeof curMode === 'function' && curMode()?.type === 'endless';
+  if (isEndless && typeof _saveEndlessGame === 'function') _saveEndlessGame();
+  closeSettings();
+  init();
+});
 
 // 表示名保存ボタン
 const displayNameSaveBtn = document.getElementById('displayname-save');

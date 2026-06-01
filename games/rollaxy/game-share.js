@@ -57,6 +57,8 @@ async function _createShare() {
           body_count: bodies.length,
         },
         ui_lang:       typeof currentLang !== 'undefined' ? currentLang : 'ja',
+        // セーブ再開由来か（将来のチート対策/区別用。現状サーバーは未保存）
+        resumed:       (typeof _resumedFromSave !== 'undefined' && _resumedFromSave) ? 1 : 0,
         version:       CFG.GAME_VERSION,
         player_id:     getPlayerId(),    // guest_xxx 形式（将来ログイン統合時は差し替え）
         display_name:  getDisplayName(), // ランキングに表示する表示名

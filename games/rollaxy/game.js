@@ -716,6 +716,7 @@ function _buildPhysicsWorld() {
   Matter.Events.on(eng, 'afterUpdate',     scanNearby);       // 近距離ペアを補完スキャン
   Matter.Events.on(eng, 'afterUpdate',     flushMerges);      // スキャン結果を処理（登録順で後に実行）
   Matter.Events.on(eng, 'afterUpdate',     _applyGravityWell);// R3: 中央寄せ力 (gravityWell)
+  Matter.Events.on(eng, 'afterUpdate',     _checkEndlessAutoSave); // エンドレス自動セーブ（静止時）
 }
 
 // R3 gravityWell: 全ボディに対し盤面中央寄せの軽い力を加える
@@ -879,6 +880,7 @@ function drop() {
     const def = CFG.BODIES[curBi];
     const x = clamp(dropX, CFG.BOX.L + def.r + 1, CFG.BOX.R - def.r - 1);
     spawn(x, CFG.DROP_Y, curBi);
+    _endlessDirty = true; // 盤面変化 → 静止時に自動セーブ
     _checkSimultaneous();
     // R3 previewLength: 先読みキューがあれば優先消費
     curBi = nxtBi;
@@ -1111,6 +1113,7 @@ function flushMerges() {
     const ox = (Math.random() - 0.5) * 0.5;
     const oy = (Math.random() - 0.5) * 0.5;
     const nb = spawn(m.x + ox, m.y + oy, ni);
+    _endlessDirty = true; // 合成で盤面変化 → 静止時に自動セーブ
 
     const angle = Math.random() * Math.PI * 2;
     const speed = Math.random() * CFG.RULES.MERGE_BURST;
@@ -1311,6 +1314,8 @@ function _runEndEffect() {
 function doGameOver() {
   if (dead) return;
   dead = true;
+  // エンドレスのゲームオーバーはセーブを破棄（一期一会。次は新規スタート）
+  if (curMode()?.type === 'endless') _clearEndlessSave();
   // 停止 → 揺れ → スロー → 通常 の汎用演出を起動 (オーバーレイ表示はこの後遅延)
   _runEndEffect();
   if (dropTimer) clearTimeout(dropTimer);
@@ -1994,7 +1999,12 @@ function _openModeSelectSheet() {
       currentModeId = m.id;
       localStorage.setItem(STORAGE_KEYS.LAST_MODE, currentModeId);
       _closeModeSelectSheet();
-      beginGame(m.id);
+      // エンドレスでセーブがあれば「続き / 新規」ダイアログを挟む
+      if (m.id === 'endless' && _hasEndlessSave()) {
+        _openEndlessResumeDialog();
+      } else {
+        beginGame(m.id);
+      }
     });
     btnsEl.appendChild(card);
   });
@@ -2013,6 +2023,158 @@ function _closeModeSelectSheet() {
 // 「← 戻る」でシートを閉じてプレイパネルへ
 const _modeSelectBack = document.getElementById('mode-select-back');
 if (_modeSelectBack) on(_modeSelectBack, () => { playDecisionSound(); _closeModeSelectSheet(); });
+
+// ============================================================
+// エンドレス 自動セーブ / 再開
+// ============================================================
+// セーブ対象: 盤面の全天体(位置/速度/角度) + スコア + 次の天体 + 先読み + スキル所持数
+const ENDLESS_SAVE_VER = 1;
+let _endlessDirty      = false;  // 盤面が変化した（前回セーブ以降）か
+let _restoringEndless  = false;  // 復元中フラグ（復元中の自動セーブを抑止）
+let _resumedFromSave   = false;  // このゲームがセーブ再開由来か（ランキング送信フラグ用）
+
+function _hasEndlessSave() {
+  return !!localStorage.getItem(STORAGE_KEYS.ENDLESS_SAVE);
+}
+function _clearEndlessSave() {
+  localStorage.removeItem(STORAGE_KEYS.ENDLESS_SAVE);
+  _endlessDirty = false;
+}
+function _loadEndlessSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEYS.ENDLESS_SAVE) || 'null');
+    if (!s || s.v !== ENDLESS_SAVE_VER || !Array.isArray(s.bodies)) return null;
+    return s;
+  } catch (_) { return null; }
+}
+// 現在の盤面をシリアライズして保存。endless 以外・dead・waiting では何もしない。
+function _saveEndlessGame() {
+  if (curMode()?.type !== 'endless' || dead || waiting) return;
+  const bodies = [];
+  for (const d of bmap.values()) {
+    const b = d.body;
+    bodies.push({
+      bi: d.bi,
+      x:  +b.position.x.toFixed(2), y: +b.position.y.toFixed(2),
+      vx: +b.velocity.x.toFixed(3), vy: +b.velocity.y.toFixed(3),
+      a:  +b.angle.toFixed(3),      va: +b.angularVelocity.toFixed(4),
+    });
+  }
+  const save = {
+    v: ENDLESS_SAVE_VER,
+    score, curBi, nxtBi,
+    preview: Array.isArray(_previewLookahead) ? _previewLookahead.slice() : [],
+    skills: skillCharges ? { ...skillCharges } : null,
+    bodies,
+    savedAt: Date.now(),
+  };
+  try { localStorage.setItem(STORAGE_KEYS.ENDLESS_SAVE, JSON.stringify(save)); } catch (_) {}
+}
+// 物理 afterUpdate から呼ばれる自動セーブ判定（天体が静止したら保存）。
+function _checkEndlessAutoSave() {
+  if (curMode()?.type !== 'endless' || dead || paused || waiting || _restoringEndless) return;
+  if (!_endlessDirty) return;
+  if (typeof mq !== 'undefined' && mq.length > 0) return; // 合成待ちは未確定
+  // 全天体が静止しているか
+  for (const d of bmap.values()) {
+    const v = d.body.velocity;
+    if (Math.hypot(v.x, v.y) > 0.28) return; // まだ動いている
+  }
+  _saveEndlessGame();
+  _endlessDirty = false;
+}
+
+// セーブから再開。init→beginGame でまっさらにしてから盤面を流し込む。
+function _resumeEndless() {
+  const save = _loadEndlessSave();
+  if (!save) { beginGame('endless'); return; }
+  init();
+  _restoringEndless = true;
+  beginGame('endless'); // 空盤面・スコア0 でプレイ状態へ
+  // 保存盤面を流し込む
+  if (skillCharges && save.skills) {
+    for (const k of Object.keys(skillCharges)) {
+      if (k in save.skills) skillCharges[k] = save.skills[k];
+    }
+  }
+  for (const sb of save.bodies) {
+    if (typeof sb.bi !== 'number' || sb.bi < 0 || sb.bi >= CFG.BODIES.length) continue;
+    const b = spawn(sb.x, sb.y, sb.bi);
+    Matter.Body.setVelocity(b, { x: sb.vx || 0, y: sb.vy || 0 });
+    Matter.Body.setAngle(b, sb.a || 0);
+    Matter.Body.setAngularVelocity(b, sb.va || 0);
+  }
+  score = Math.max(0, Math.floor(save.score || 0));
+  if (typeof save.curBi === 'number') curBi = save.curBi;
+  if (typeof save.nxtBi === 'number') nxtBi = save.nxtBi;
+  _previewLookahead = Array.isArray(save.preview) ? save.preview.slice() : [];
+  _resumedFromSave = true;
+  _restoringEndless = false;
+  _endlessDirty = false;
+  updateHUD();
+  updateSkillButtons();
+}
+
+// ── 続き/新規 ダイアログ ──
+function _openEndlessResumeDialog() {
+  const modal = document.getElementById('endless-resume-modal');
+  if (!modal) { beginGame('endless'); return; }
+  const save = _loadEndlessSave();
+  _setTextById('endless-resume-title', T('endlessResumeTitle'));
+  // セーブ情報: スコアと天体数
+  const info = save ? T('endlessResumeInfo')(save.score || 0, (save.bodies || []).length) : '';
+  _setTextById('endless-resume-info', info);
+  _setTextById('endless-resume-continue', T('endlessResumeContinue'));
+  _setTextById('endless-resume-new', T('endlessResumeNew'));
+  modal.classList.add('show');
+}
+function _closeEndlessResumeDialog() {
+  document.getElementById('endless-resume-modal')?.classList.remove('show');
+}
+function _openEndlessConfirm() {
+  const modal = document.getElementById('endless-confirm-modal');
+  if (!modal) return;
+  _setTextById('endless-confirm-title', T('endlessConfirmTitle'));
+  _setTextById('endless-confirm-cancel', T('endlessConfirmCancel'));
+  _setTextById('endless-confirm-ok', T('endlessConfirmOk'));
+  modal.classList.add('show');
+}
+function _closeEndlessConfirm() {
+  document.getElementById('endless-confirm-modal')?.classList.remove('show');
+}
+function _setTextById(id, txt) { const e = document.getElementById(id); if (e) e.textContent = txt; }
+
+// 続き → 復元して開始
+on(document.getElementById('endless-resume-continue'), () => {
+  playDecisionSound();
+  _closeEndlessResumeDialog();
+  _resumeEndless();
+});
+// 新しく始める → 確認ダイアログへ
+on(document.getElementById('endless-resume-new'), () => {
+  playDecisionSound();
+  _openEndlessConfirm();
+});
+// 確認: キャンセル → 確認だけ閉じる（続き/新規ダイアログは残す）
+on(document.getElementById('endless-confirm-cancel'), () => {
+  playBackSound();
+  _closeEndlessConfirm();
+});
+// 確認: OK → セーブ破棄して新規開始
+on(document.getElementById('endless-confirm-ok'), () => {
+  playDecisionSound();
+  _clearEndlessSave();
+  _closeEndlessConfirm();
+  _closeEndlessResumeDialog();
+  beginGame('endless');
+});
+// 続き/新規ダイアログ背景タップで閉じる（プレイは開始しない＝ホームへ戻る）
+const _endlessResumeModalEl = document.getElementById('endless-resume-modal');
+if (_endlessResumeModalEl) {
+  _endlessResumeModalEl.addEventListener('click', (e) => {
+    if (e.target === _endlessResumeModalEl) _closeEndlessResumeDialog();
+  });
+}
 
 // ── ホーム下部バー（タブ切替）──
 // プレイ=ホーム基本画面（オーバーレイを閉じる）、恒星/研究/実績/ランキングは各オーバーレイ。
@@ -2189,6 +2351,8 @@ function beginGame(modeId = currentModeId, stageId = currentStageId) {
   _gameStartTime = Date.now(); // ゲーム開始時刻（elapsed_ms 計算用）
   _speedrunCleared = false; _speedrunClearMs = 0; // speedrun 状態リセット
   _pausedTotalMs = 0; _pauseStartedAt = 0;        // ポーズ計測リセット
+  // セーブ再開フラグ: _resumeEndless が後で true に上書きする。通常開始は false。
+  if (!_restoringEndless) { _resumedFromSave = false; _endlessDirty = false; }
   // 制限時間を確定（time モードは固定 timeLimit、tutorial はステージ毎の timeLimit）
   _timeLimitMs = 0;
   if (m.type === 'time' && m.timeLimit) {

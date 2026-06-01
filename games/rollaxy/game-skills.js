@@ -361,6 +361,8 @@ function confirmSkillAction() {
 
 // bmap 内の全天体を sleep から起こす
 function wakeAllBodies() {
+  // スキル等で盤面が動いた → エンドレス自動セーブ対象としてマーク
+  if (typeof _endlessDirty !== 'undefined') _endlessDirty = true;
   const now = Date.now();
   for (const d of bmap.values()) {
     Matter.Sleeping.set(d.body, false);

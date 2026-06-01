@@ -315,6 +315,7 @@ const STORAGE_KEYS = {
   BEST_SPEEDRUN_MS:    'novora_best_speedrun_ms',     // スピードランのベストタイム (ms)
   BEST_SHARE_ID_SPEEDRUN: 'novora_best_share_id_speedrun',
   UNLOCKED_MODES:      'rollaxy_unlocked_modes',     // 解放済みモードID配列(JSON)。endless は常に解放。
+  ENDLESS_SAVE:        'rollaxy_endless_save',        // エンドレスの自動セーブ(JSON)。盤面+スコア+スキル
   LANG:          'novora_lang',
 
   // ── rollaxy_ : このゲーム専用（リセット対象） ──
