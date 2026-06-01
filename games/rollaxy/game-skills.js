@@ -326,9 +326,11 @@ function confirmSkillAction() {
     // speedrun: 強化で銀河団 (bi=CFG.BODIES.length-1) を作った場合もクリア判定
     if (ni === CFG.BODIES.length - 1 && curMode()?.type === 'speedrun' && !_speedrunCleared) {
       _speedrunCleared = true;
-      _speedrunClearMs = Date.now() - _gameStartTime;
+      _speedrunClearMs = _getPlayElapsedMs();
       setTimeout(() => doSpeedrunClear(), 50);
     }
+    // モード解放判定: 中性子星 (bi=8) → speedrun、銀河団 (bi=11) → time
+    if (typeof _checkModeUnlock === 'function') _checkModeUnlock(ni);
   } else if (activeSkill === 'delete') {
     playDeleteSound();
     bmap.delete(skillSelectedId); glowMap.delete(skillSelectedId);

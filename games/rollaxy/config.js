@@ -99,7 +99,7 @@ const CFG = {
     // speedrun: 銀河団 (最深天体) を作成するまでのタイムを競う。失敗 (天体あふれ) = 記録なし。
     { id: 'speedrun', type: 'speedrun', nameJa: 'スピードラン', nameEn: 'Speedrun',     nameZh: '速通', unlockLevel: 0 },
   ],
-  DEFAULT_MODE: 'time',
+  DEFAULT_MODE: 'endless',
 
   // ステージ定義（tutorial モード用）。id = "ワールド-ステージ"。
   // 目標スキーマ（複数指定時は全て満たすとクリア）:
@@ -314,6 +314,7 @@ const STORAGE_KEYS = {
   BEST_SHARE_ID_TIME: 'novora_best_share_id_time',
   BEST_SPEEDRUN_MS:    'novora_best_speedrun_ms',     // スピードランのベストタイム (ms)
   BEST_SHARE_ID_SPEEDRUN: 'novora_best_share_id_speedrun',
+  UNLOCKED_MODES:      'rollaxy_unlocked_modes',     // 解放済みモードID配列(JSON)。endless は常に解放。
   LANG:          'novora_lang',
 
   // ── rollaxy_ : このゲーム専用（リセット対象） ──

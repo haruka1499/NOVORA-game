@@ -2226,6 +2226,49 @@ body.game-ended #skill-bar {
   pointer-events: none;
 }
 
+/* モード解放ポップアップ */
+#mode-unlock-modal {
+  display: none; position: fixed; inset: 0; z-index: 9400;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+  animation: fadeIn 0.25s ease both;
+}
+#mode-unlock-modal.show { display: flex; }
+#mode-unlock-panel {
+  background: linear-gradient(160deg, #1e1246 0%, #0d0820 100%);
+  border: 1px solid rgba(143,214,255,0.55);
+  border-radius: 18px;
+  padding: 28px 32px 22px;
+  width: min(320px, 88vw);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.6), 0 0 40px rgba(143,214,255,0.25);
+  animation: modeUnlockPop 0.4s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+@keyframes modeUnlockPop {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+#mode-unlock-icon {
+  font-size: 48px;
+  filter: drop-shadow(0 0 12px rgba(255,215,107,0.7));
+}
+#mode-unlock-title {
+  font-size: 16px; font-weight: bold; color: #e0d4ff;
+  text-align: center; line-height: 1.4;
+}
+#mode-unlock-close {
+  margin-top: 4px;
+  padding: 12px 36px;
+  border: none; border-radius: 999px;
+  background: linear-gradient(135deg, #6a4fd0, #9a7cff);
+  color: #fff; font-size: 15px; font-weight: bold;
+  cursor: pointer; letter-spacing: 0.04em;
+  box-shadow: 0 4px 18px rgba(124,92,252,0.45);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s;
+}
+#mode-unlock-close:active { transform: scale(0.96); }
+
 /* ── オフライン報酬モーダル ── */
 #offline-reward-modal {
   position: fixed; inset: 0; z-index: 9200;

@@ -357,8 +357,76 @@ function getPlayerLevel() {
   return parseInt(localStorage.getItem(STORAGE_KEYS.PLAYER_LEVEL) || '0', 10) || 0;
 }
 // 解禁判定の唯一の入口。将来はここにレベル/前ステージクリア条件を足すだけで拡張できる。
+// モード/ステージの解放判定。
+// モード:
+//   - tutorial / endless は常に解放
+//   - speedrun: 中性子星(bi=8)作成で解放
+//   - time: 銀河団(bi=11)達成で解放
+//   - その他: 既存の unlockLevel 互換
 function isUnlocked(item) {
+  if (item && typeof item.id === 'string') {
+    if (item.id === 'endless' || item.id === 'tutorial') return true;
+    if (item.id === 'speedrun' || item.id === 'time') return isModeUnlocked(item.id);
+  }
   return (item?.unlockLevel ?? 0) <= getPlayerLevel();
+}
+function getUnlockedModes() {
+  try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.UNLOCKED_MODES) || '[]')); }
+  catch (_) { return new Set(); }
+}
+function isModeUnlocked(modeId) {
+  return getUnlockedModes().has(modeId);
+}
+// 新規モード解放。既に解放済なら何もしない。ポップアップ表示はオプション (showPopup=true)。
+function unlockMode(modeId, showPopup = true) {
+  const s = getUnlockedModes();
+  if (s.has(modeId)) return false;
+  s.add(modeId);
+  localStorage.setItem(STORAGE_KEYS.UNLOCKED_MODES, JSON.stringify([...s]));
+  if (showPopup) showModeUnlockPopup(modeId);
+  return true;
+}
+// flushMerges / 強化スキル両経路から呼ばれる解放判定。
+// 中性子星(bi=8) 作成 → エンドレスでプレイ中なら speedrun 解放
+// 銀河団(bi=11) 達成 → エンドレス/スピードランのいずれでも time 解放
+function _checkModeUnlock(bi) {
+  const m = curMode()?.type;
+  if (bi === 8 && m === 'endless' && !isModeUnlocked('speedrun')) {
+    unlockMode('speedrun');
+  }
+  if (bi === 11 && (m === 'endless' || m === 'speedrun') && !isModeUnlocked('time')) {
+    unlockMode('time');
+  }
+}
+
+// ── モード解放ポップアップ ──
+// 表示中は paused = true でシミュレーション停止 (speedrun クリア演出の最中でも安全)。
+// 閉じるボタン or 背景タップで paused 解除 + ポップアップ非表示。
+function showModeUnlockPopup(modeId) {
+  const modal  = document.getElementById('mode-unlock-modal');
+  const title  = document.getElementById('mode-unlock-title');
+  const closeB = document.getElementById('mode-unlock-close');
+  if (!modal) return;
+  // モード名を i18n で取得
+  const def = CFG.MODES.find(m => m.id === modeId);
+  const modeNm = def ? modeName(def) : modeId;
+  if (title) title.textContent = T('modeUnlocked')(modeNm);
+  if (closeB) closeB.textContent = T('modeUnlockClose');
+  // 時間停止 (ポーズ計測も連動)
+  if (!paused) {
+    paused = true;
+    if (typeof _onPauseStart === 'function') _onPauseStart();
+  }
+  modal.classList.add('show');
+}
+function _closeModeUnlockPopup() {
+  const modal = document.getElementById('mode-unlock-modal');
+  if (modal) modal.classList.remove('show');
+  // 時間再開 (dead 中はそのまま、ゲームプレイ中だけ paused 解除)
+  if (paused && !dead) {
+    paused = false;
+    if (typeof _onPauseEnd === 'function') _onPauseEnd();
+  }
 }
 // 現在言語でモード名を取得（achievements と同じ nameJa/En/Zh 規約）。
 function modeName(m) {
@@ -561,8 +629,9 @@ function init() {
   // チュートリアル完了後に currentModeId が 'tutorial' のままなら time/保存モードへ。
   if (isStageTutorialDone() && curMode().type === 'tutorial') {
     const saved = localStorage.getItem(STORAGE_KEYS.LAST_MODE);
-    currentModeId = (saved && CFG.MODES.some(m => m.id === saved && m.type !== 'tutorial'))
-      ? saved : CFG.DEFAULT_MODE;
+    // 解放されていないモードが保存されていた場合は DEFAULT_MODE にフォールバック
+    const savedDef = CFG.MODES.find(m => m.id === saved && m.type !== 'tutorial');
+    currentModeId = (savedDef && isUnlocked(savedDef)) ? saved : CFG.DEFAULT_MODE;
   }
   // tutorial モードなら未クリアの先頭ステージを選択（クリア状況に応じて進行）
   if (curMode().type === 'tutorial') currentStageId = firstUnclearedStageId();
@@ -1031,6 +1100,8 @@ function flushMerges() {
       _speedrunClearMs = _getPlayElapsedMs();
       setTimeout(() => doSpeedrunClear(), 50);
     }
+    // モード解放判定: 中性子星 (bi=8) → speedrun、銀河団 (bi=11) → time
+    _checkModeUnlock(ni);
 
     // 同座標スポーン防止: 微小オフセットを加える
     const ox = (Math.random() - 0.5) * 0.5;
@@ -1763,6 +1834,16 @@ if (_overlayHomeBtn) {
   });
 }
 
+// モード解放ポップアップの閉じるボタン + 背景タップ
+const _modeUnlockCloseBtn = document.getElementById('mode-unlock-close');
+const _modeUnlockModal    = document.getElementById('mode-unlock-modal');
+if (_modeUnlockCloseBtn) on(_modeUnlockCloseBtn, () => _closeModeUnlockPopup());
+if (_modeUnlockModal) {
+  _modeUnlockModal.addEventListener('click', (e) => {
+    if (e.target === _modeUnlockModal) _closeModeUnlockPopup();
+  });
+}
+
 // 「次へ進む」— チュートリアルクリア後、次のステージへ直接進む
 const _nextStageBtn = document.getElementById('next-stage-btn');
 if (_nextStageBtn) {
@@ -1957,8 +2038,8 @@ if (_skipTutorialBtn) {
     localStorage.setItem(STORAGE_KEYS.TUTORIAL_DONE, '1');
     tutorialDone = true;
     const _saved = localStorage.getItem(STORAGE_KEYS.MODE);
-    currentModeId = (_saved && CFG.MODES.some(m => m.id === _saved && m.type !== 'tutorial'))
-      ? _saved : CFG.DEFAULT_MODE;
+    const _savedDef = CFG.MODES.find(m => m.id === _saved && m.type !== 'tutorial');
+    currentModeId = (_savedDef && isUnlocked(_savedDef)) ? _saved : CFG.DEFAULT_MODE;
     logEvent('tutorial_skip', {
       game_id:     'rollaxy',
       game_number: parseInt(localStorage.getItem(STORAGE_KEYS.GAME_COUNT) || '0', 10),
