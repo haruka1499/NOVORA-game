@@ -24,7 +24,7 @@
 // ============================================================
 
 const MOTIV_RANK_TTL_MS  = 10 * 60 * 1000;  // ランキング API キャッシュ
-const MOTIV_CYCLE_MS     = 8000;            // 切替間隔
+const MOTIV_CYCLE_MS     = 30000;           // 切替間隔 (じっくり読ませる)
 const MOTIV_FADE_MS      = 400;             // フェード時間
 let _motivRankCache = null;                  // {ts, data: [{mode, period, entries}]}
 let _motivTimer     = null;
@@ -236,30 +236,108 @@ function pickMotivationMessage(callback) {
   }).catch(() => {});
 }
 
+let _motivCurrentText = '';
+
+// メッセージ + 残り時間バーを要素内に描画。バーは MOTIV_CYCLE_MS で空になる。
+function _motivRenderInto(el, msg) {
+  let textEl = el.querySelector('.motiv-text');
+  let barEl  = el.querySelector('.motiv-bar-fill');
+  if (!textEl) {
+    el.innerHTML = '<div class="motiv-text"></div>'
+                 + '<div class="motiv-bar"><div class="motiv-bar-fill"></div></div>';
+    textEl = el.querySelector('.motiv-text');
+    barEl  = el.querySelector('.motiv-bar-fill');
+  }
+  textEl.textContent = msg;
+  _motivCurrentText = msg;
+  if (barEl) {
+    barEl.style.animation = 'none';
+    void barEl.offsetWidth; // reflow でアニメーションをリセット
+    barEl.style.animation = `motivBarDeplete ${MOTIV_CYCLE_MS}ms linear forwards`;
+  }
+}
+
 function startMotivationCycle(el) {
   if (!el) return;
   stopMotivationCycle();
   _motivTargetEl = el;
-  // 初回即時表示
-  pickMotivationMessage((msg) => {
-    if (_motivTargetEl !== el) return; // すでに別要素へ切替済み
-    el.textContent = msg;
-    el.classList.remove('motiv-fading');
-  });
-  _motivTimer = setInterval(() => {
-    if (!_motivTargetEl) return;
-    _motivTargetEl.classList.add('motiv-fading');
-    setTimeout(() => {
-      pickMotivationMessage((msg) => {
-        if (!_motivTargetEl) return;
-        _motivTargetEl.textContent = msg;
-        _motivTargetEl.classList.remove('motiv-fading');
-      });
-    }, MOTIV_FADE_MS);
-  }, MOTIV_CYCLE_MS);
+  _motivShowNext(true); // 初回は即時
+}
+
+function _motivShowNext(immediate) {
+  const el = _motivTargetEl;
+  if (!el) return;
+  const apply = () => {
+    pickMotivationMessage((msg) => {
+      if (_motivTargetEl !== el) return;
+      _motivRenderInto(el, msg);
+      el.classList.remove('motiv-fading');
+    });
+    _motivScheduleNext();
+  };
+  if (immediate) {
+    apply();
+  } else {
+    el.classList.add('motiv-fading');
+    setTimeout(apply, MOTIV_FADE_MS);
+  }
+}
+
+function _motivScheduleNext() {
+  if (_motivTimer) clearTimeout(_motivTimer);
+  _motivTimer = setTimeout(() => _motivShowNext(false), MOTIV_CYCLE_MS);
 }
 
 function stopMotivationCycle() {
-  if (_motivTimer) { clearInterval(_motivTimer); _motivTimer = null; }
+  if (_motivTimer) { clearTimeout(_motivTimer); _motivTimer = null; }
+  if (_motivTargetEl) {
+    const bar = _motivTargetEl.querySelector('.motiv-bar-fill');
+    if (bar) bar.style.animation = 'none';
+  }
   _motivTargetEl = null;
+  _closeMotivDetail();
 }
+
+// ── タップ詳細表示（読みやすく拡大、表示中はサイクル一時停止）──
+function _motivPause() {
+  if (_motivTimer) { clearTimeout(_motivTimer); _motivTimer = null; }
+  if (_motivTargetEl) {
+    const bar = _motivTargetEl.querySelector('.motiv-bar-fill');
+    if (bar) bar.style.animationPlayState = 'paused';
+  }
+}
+function _motivResume() {
+  if (!_motivTargetEl) return;
+  // 現在のメッセージのまま、バーとタイマーを最初から（読み終えたら再び30秒）
+  _motivRenderInto(_motivTargetEl, _motivCurrentText);
+  _motivScheduleNext();
+}
+function _openMotivDetail() {
+  const modal = document.getElementById('motiv-detail-modal');
+  if (!modal || !_motivCurrentText || !_motivTargetEl) return;
+  const txt = document.getElementById('motiv-detail-text');
+  if (txt) txt.textContent = _motivCurrentText;
+  const closeBtn = document.getElementById('motiv-detail-close');
+  if (closeBtn) closeBtn.textContent = _mT('modeUnlockClose');
+  modal.classList.add('show');
+  _motivPause();
+}
+function _closeMotivDetail() {
+  const modal = document.getElementById('motiv-detail-modal');
+  if (!modal || !modal.classList.contains('show')) return;
+  modal.classList.remove('show');
+  _motivResume();
+}
+
+// やる気ボックスのタップで詳細を開く（両ボックス共通）。on() は game-util.js。
+(function _bindMotivTaps() {
+  const ids = ['home-motivation', 'overlay-motivation'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el && typeof on === 'function') on(el, () => _openMotivDetail());
+  }
+  const modal   = document.getElementById('motiv-detail-modal');
+  const closeBtn = document.getElementById('motiv-detail-close');
+  if (closeBtn && typeof on === 'function') on(closeBtn, () => _closeMotivDetail());
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) _closeMotivDetail(); });
+})();
