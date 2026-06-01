@@ -93,6 +93,8 @@
           <button id="start-name-hint-ok"></button>
         </div>
       </div>
+      <!-- やる気メッセージ (表示名とスタートの間。8秒で次の候補へフェード) -->
+      <div id="home-motivation" class="motiv-box"></div>
       <!-- プレイ（ホーム既定）パネル -->
       <div id="play-panel">
         <button id="mode-toggle-btn" style="display:none"></button>
@@ -251,6 +253,8 @@
   </div>
   <div id="overlay">
     <h2 data-i18n="gameOver">ゲームオーバー</h2>
+    <!-- やる気メッセージ (スコア上に表示。終了画面表示時に開始、init で停止) -->
+    <div id="overlay-motivation" class="motiv-box"></div>
     <p class="result"><span data-i18n="scoreResult">スコア</span>: <strong id="final-score">0</strong></p>
     <p id="reward-el" class="reward-line"></p>
     <p id="new-hi" data-i18n="newRecord">🏆 新記録！</p>
@@ -483,6 +487,7 @@
 <script src="game-share.js"></script>
 <script src="achievement-data.js"></script>
 <script src="game-achievements.js"></script>
+<script src="game-motivation.js"></script>
 <script src="game-feedback.js"></script>
 <script src="game.js"></script>
 <script src="game-ui.js"></script>

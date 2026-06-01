@@ -2226,6 +2226,31 @@ body.game-ended #skill-bar {
   pointer-events: none;
 }
 
+/* やる気メッセージボックス (ホーム + 終了画面で共通) */
+.motiv-box {
+  font-size: 13px;
+  color: #d4baff;
+  width: min(330px, 88vw);
+  margin: 6px auto;
+  padding: 10px 14px;
+  background: rgba(124,92,252,0.10);
+  border: 1px solid rgba(124,92,252,0.25);
+  border-radius: 10px;
+  text-align: center;
+  line-height: 1.45;
+  min-height: 22px;
+  letter-spacing: 0.01em;
+  transition: opacity 0.4s ease;
+}
+.motiv-box:empty { opacity: 0; padding: 0; min-height: 0; border: none; }
+.motiv-box.motiv-fading { opacity: 0; }
+/* オーバーレイ内では少し暗めに馴染ませる */
+#overlay-motivation {
+  background: rgba(124,92,252,0.14);
+  border-color: rgba(143,214,255,0.30);
+  color: #e2c8ff;
+}
+
 /* モード解放ポップアップ */
 #mode-unlock-modal {
   display: none; position: fixed; inset: 0; z-index: 9400;

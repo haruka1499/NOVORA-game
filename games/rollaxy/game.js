@@ -672,6 +672,10 @@ function init() {
   _buildPhysicsWorld();
   updateHUD();
 
+  // やる気メッセージ: 終了画面側を止め、ホーム側を開始
+  if (typeof stopMotivationCycle === 'function') stopMotivationCycle();
+  const _homeMotivEl = document.getElementById('home-motivation');
+  if (_homeMotivEl && typeof startMotivationCycle === 'function') startMotivationCycle(_homeMotivEl);
 }
 
 // 物理エンジン・壁・衝突イベントを再構築する（init からのみ呼ばれる）。
@@ -1451,6 +1455,9 @@ function _startGameOverAnim() {
   if (ids.length === 0) {
     show(overlay);
     document.body.classList.add('game-ended'); // スキルバー fade out / feedback fade in
+    // 終了画面のやる気メッセージを開始
+    const _ovMotivEl = document.getElementById('overlay-motivation');
+    if (_ovMotivEl && typeof startMotivationCycle === 'function') startMotivationCycle(_ovMotivEl);
     showResourceBar();
     _fireOverlayParticles();
     _startAutoReturn();
@@ -1470,6 +1477,9 @@ function _startGameOverAnim() {
         setTimeout(() => {
           show(overlay);
           document.body.classList.add('game-ended'); // スキルバー fade out / feedback fade in
+    // 終了画面のやる気メッセージを開始
+    const _ovMotivEl = document.getElementById('overlay-motivation');
+    if (_ovMotivEl && typeof startMotivationCycle === 'function') startMotivationCycle(_ovMotivEl);
           showResourceBar();
           _fireOverlayParticles();
           _startAutoReturn();
@@ -2209,6 +2219,7 @@ function beginGame(modeId = currentModeId, stageId = currentStageId) {
 
   document.getElementById('home-nav')?.classList.remove('show'); // 下部バーを隠す
   _closeAllHomeOverlays(); // 開いているメタオーバーレイを全て閉じる（ランキング等の残留防止）
+  if (typeof stopMotivationCycle === 'function') stopMotivationCycle(); // ホームのやる気メッセージ停止
   startScreen.classList.add('hidden');       // スタート画面をフェードアウト
   hideResourceBar(); // ゲームプレイ中はリソースバーを隠す
   updateSkillButtons(); // waiting=false になったのでボタンの disabled を解除
