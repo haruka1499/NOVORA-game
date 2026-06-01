@@ -231,8 +231,8 @@ async function handleRanking(request, env) {
     return json({ error: 'period must be all | daily | weekly' }, 400);
   }
 
-  // all はタイムゾーン無関係。daily/weekly はtz別にキャッシュを分ける
-  const cacheKey = period === 'all'
+  // all と weekly はタイムゾーン無関係（ローリングウィンドウ）。daily のみ tz 別キャッシュ。
+  const cacheKey = (period === 'all' || period === 'weekly')
     ? `${GAME_ID}:ranking:${mode}:${period}:${limit}`
     : `${GAME_ID}:ranking:${mode}:${period}:${limit}:tz${tz}`;
   try {
@@ -241,21 +241,17 @@ async function handleRanking(request, env) {
   } catch (_) {}
 
   const now   = Math.floor(Date.now() / 1000);
-  // ── 期間境界計算 ──
-  // daily: 直近24hローリングウィンドウ（カレンダー0時区切りではない）
-  // weekly: ローカル時刻の今週月曜00:00（カレンダー区切りを維持）
+  // ── 期間境界計算 (すべてローリングウィンドウ) ──
+  // daily : 直近 24 時間
+  // weekly: 直近 7 日 (カレンダー週ではない。月曜区切りを廃止)
+  // all   : 制限なし
   let since;
   if (period === 'all') {
     since = 0;
   } else if (period === 'daily') {
-    since = now - 86400; // 直近24時間
+    since = now - 86400;
   } else {
-    // weekly: ローカルの今週月曜 00:00:00 をUTCのUnix秒に変換
-    const tzSec          = tz * 60;
-    const localNow       = now + tzSec;
-    const localDays      = Math.floor(localNow / 86400);
-    const daysSinceMonday = (localDays + 3) % 7; // 0=月,1=火,...,6=日
-    since = (localDays - daysSinceMonday) * 86400 - tzSec;
+    since = now - 7 * 86400; // 直近 7 日（604800 秒）
   }
 
   // ── ランキング取得（プレイヤーごとにベストスコアのみ表示） ──
