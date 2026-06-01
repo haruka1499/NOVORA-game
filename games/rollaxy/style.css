@@ -2132,6 +2132,28 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   z-index: 50;
 }
 
+/* ゲームオーバー/クリア画面のフィードバックボタン:
+   ホーム画面と同じ青系の色味、四角ベースで角を軽く丸める、横ほぼ目一杯まで広げる。
+   #overlay button のオレンジ pill スタイルを丸ごと上書きする必要があるため
+   詳細度を高めて !important で確実に効かせる。 */
+#overlay button#feedback-overlay-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(143,214,255,0.25);
+  color: #c8d6f0;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 16px;
+  border-radius: 10px;       /* 角を軽く丸めた四角ベース */
+  width: min(360px, 92%);    /* スマホ横ほぼ目一杯、上限あり */
+  max-width: 360px;
+  box-shadow: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+#overlay button#feedback-overlay-btn:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(143,214,255,0.45);
+}
+
 /* ── オフライン報酬モーダル ── */
 #offline-reward-modal {
   position: fixed; inset: 0; z-index: 9200;
