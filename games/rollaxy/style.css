@@ -2168,6 +2168,31 @@ body.game-ended #overlay button#feedback-overlay-btn {
   pointer-events: auto;
   transition: opacity 0.6s ease 0.4s; /* スキルバーが消えてから現れる */
 }
+/* ホームに戻る (フィードバックボタンの少し上に控えめなプレーンテキスト) */
+#overlay button#overlay-home-btn {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  /* feedback ボタン (bottom 14px + height ~44px) の上に 8px 余白 */
+  bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+  z-index: 7;
+  background: transparent;
+  border: none;
+  color: #8aa0c0;
+  font-size: 12px;
+  font-weight: normal;
+  padding: 6px 12px;
+  box-shadow: none;
+  text-decoration: underline;
+  opacity: 0;
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+body.game-ended #overlay button#overlay-home-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.6s ease 0.4s;
+}
+#overlay button#overlay-home-btn:hover { color: #b8c8e0; }
 
 /* スキルバー: ゲーム終了時に下方向へスッとフェードアウト */
 #skill-bar {

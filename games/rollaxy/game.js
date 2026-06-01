@@ -1741,12 +1741,27 @@ canvas.addEventListener('touchend', e => {
 
 // retry_click はここで発火（init() 内部ではなく）
 // → ページ初回ロード時の init() と区別するため
+// 「もう一度」表示時はホームを経由せず即ゲーム再開、「ホームに戻る」表示時はホーム遷移のみ。
 on(retryBtn, () => {
   _clearAutoReturn();
   playDecisionSound();
+  const isRestart = retryBtn.textContent === T('retry');
   logEvent('retry_click', { game_id: 'rollaxy', mode: currentModeId, tutorial_stage_num: _tutStageNum(), previous_score: score });
+  const _retryMode  = currentModeId;
+  const _retryStage = currentStageId;
   init();
+  if (isRestart) beginGame(_retryMode, _retryStage);
 });
+
+// ホームに戻る (プレーンテキストの控えめリンク) — 常にホーム画面へ遷移
+const _overlayHomeBtn = document.getElementById('overlay-home-btn');
+if (_overlayHomeBtn) {
+  on(_overlayHomeBtn, () => {
+    _clearAutoReturn();
+    playBackSound();
+    init();
+  });
+}
 
 // 「次へ進む」— チュートリアルクリア後、次のステージへ直接進む
 const _nextStageBtn = document.getElementById('next-stage-btn');
