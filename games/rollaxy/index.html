@@ -268,17 +268,15 @@
   </div>
   <div id="overlay">
     <h2 data-i18n="gameOver">ゲームオーバー</h2>
-    <!-- やる気メッセージ (スコア上に表示。終了画面表示時に開始、init で停止) -->
-    <div id="overlay-motivation" class="motiv-box"></div>
     <p class="result"><span data-i18n="scoreResult">スコア</span>: <strong id="final-score">0</strong></p>
     <p id="reward-el" class="reward-line"></p>
     <p id="new-hi" data-i18n="newRecord">🏆 新記録！</p>
     <p id="rank-pct-el"></p>
+    <!-- やる気メッセージ (スコア・順位の下に表示) -->
+    <div id="overlay-motivation" class="motiv-box"></div>
     <button id="retry-btn" data-i18n="retry">もう一度</button>
     <button id="next-stage-btn" style="display:none"></button>
     <button id="share-btn" data-i18n="shareBtn">X でシェア</button>
-    <!-- 終了画面のランキング/実績ボタンは削除 (設定メニューおよびホームナビから参照可能) -->
-    <!-- ホームに戻る (プレーンテキストの控えめリンク。フィードバックボタンの上に配置) -->
     <button id="overlay-home-btn" data-i18n="backToHome">ホームに戻る</button>
     <button id="feedback-overlay-btn" class="feedback-entry" data-source="gameover" data-i18n="feedbackBtn"></button>
     <p id="share-note"></p>
