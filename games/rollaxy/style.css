@@ -2273,6 +2273,31 @@ body.game-ended #skill-bar {
   pointer-events: none;
 }
 
+/* ── 自分のスコアサマリー（ホーム画面） ── */
+#home-my-stats {
+  width: 100%; max-width: 300px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 8px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+#home-my-stats:empty { display: none; }
+.mys-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.mys-mode {
+  flex: 1 1 0; font-size: 12px; color: rgba(255,255,255,0.55);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mys-score {
+  flex: 0 0 auto; font-size: 13px; font-weight: bold; color: #fff;
+}
+.mys-rank {
+  flex: 0 0 auto; font-size: 12px; color: #9a7cff;
+  min-width: 36px; text-align: right;
+}
+
 /* やる気メッセージボックス (ホーム + 終了画面で共通) */
 .motiv-box {
   font-size: 13px;

@@ -677,7 +677,74 @@ function init() {
   const _homeMotivEl = document.getElementById('home-motivation');
   if (_homeMotivEl && typeof startMotivationCycle === 'function') startMotivationCycle(_homeMotivEl);
 
+  // スコアサマリー: ローカルベストを即時描画 → ランキングデータが届いたら順位も更新
+  _renderMyStats();
+  if (typeof _motivFetchRankings === 'function') {
+    _motivFetchRankings().then(() => _renderMyStats()).catch(() => {});
+  }
+
   _updateIntroVideo(); // 紹介動画の表示/非表示を更新
+}
+
+// ── スコアサマリー（ホーム画面：やる気メッセージとスタートの間） ──
+// ローカルベストを即時描画し、_motivRankCache が埋まれば全期間順位も表示する。
+function _renderMyStats() {
+  const el = document.getElementById('home-my-stats');
+  if (!el) return;
+
+  const bEnd = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SCORE)       || '0', 10);
+  const bTim = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SCORE_TIME)  || '0', 10);
+  const bSpd = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SPEEDRUN_MS) || '0', 10);
+
+  const spdUnlocked  = typeof isModeUnlocked === 'function' && isModeUnlocked('speedrun');
+  const timeUnlocked = typeof isModeUnlocked === 'function' && isModeUnlocked('time');
+
+  // ランクは _motivRankCache (game-motivation.js) の all 期間データから share_id で特定
+  const myIdEnd = localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID)           || '';
+  const myIdTim = localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID_TIME)      || '';
+  const myIdSpd = localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID_SPEEDRUN)  || '';
+
+  function _rank(mode, myId) {
+    if (!myId || typeof _motivRankCache === 'undefined' || !_motivRankCache?.data) return null;
+    const r = _motivRankCache.data.find(d => d.mode === mode && d.period === 'all');
+    if (!r) return null;
+    const idx = r.entries.findIndex(e => e.id === myId);
+    return idx >= 0 ? idx + 1 : null;
+  }
+
+  function _row(modeObj, scoreStr, rank) {
+    const label = modeObj ? modeName(modeObj) : '---';
+    const rankStr = rank ? T('myStatsRank')(rank) : '';
+    return `<div class="mys-row">`
+      + `<span class="mys-mode">${label}</span>`
+      + `<span class="mys-score">${scoreStr}</span>`
+      + `<span class="mys-rank">${rankStr}</span>`
+      + `</div>`;
+  }
+
+  const pt   = T('myStatsPt');
+  const rows = [];
+
+  // エンドレス（常に表示）
+  rows.push(_row(
+    CFG.MODES.find(m => m.id === 'endless'),
+    bEnd > 0 ? `${bEnd.toLocaleString()}${pt}` : '---',
+    _rank('endless', myIdEnd)
+  ));
+  // タイムアタック
+  if (timeUnlocked) rows.push(_row(
+    CFG.MODES.find(m => m.id === 'time'),
+    bTim > 0 ? `${bTim.toLocaleString()}${pt}` : '---',
+    _rank('time', myIdTim)
+  ));
+  // スピードラン（タイム表示）
+  if (spdUnlocked) rows.push(_row(
+    CFG.MODES.find(m => m.id === 'speedrun'),
+    bSpd > 0 ? _formatSpeedrunTime(bSpd) : '---',
+    _rank('speedrun', myIdSpd)
+  ));
+
+  el.innerHTML = rows.join('');
 }
 
 // 紹介動画パネルの表示制御。チュートリアル完了 or × で閉じた場合は非表示。
