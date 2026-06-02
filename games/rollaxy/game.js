@@ -2104,6 +2104,8 @@ function _openModeSelectSheet() {
 
   panel.style.display = 'none';
   sheet.style.display = 'flex';
+  const _sb = document.getElementById('start-btn');
+  if (_sb) _sb.style.display = 'none';
 }
 
 function _closeModeSelectSheet() {
@@ -2111,6 +2113,8 @@ function _closeModeSelectSheet() {
   const panel = document.getElementById('play-panel');
   if (sheet) sheet.style.display = 'none';
   if (panel) panel.style.display = '';
+  const _sb = document.getElementById('start-btn');
+  if (_sb) _sb.style.display = '';
 }
 
 // 「← 戻る」でシートを閉じてプレイパネルへ

@@ -490,11 +490,12 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   box-sizing: border-box;
 }
 
-/* プレイパネル: 縦中央寄せ */
+/* プレイパネル: 縦中央寄せ。下部に固定ボタン2つ（スタート+フィードバック）分の余白を確保 */
 #panel-play {
   justify-content: center;
   gap: 24px;
   text-align: center;
+  padding-bottom: calc(200px + env(safe-area-inset-bottom, 0px));
 }
 
 /* 研究・恒星パネル: 上から始まる */
@@ -1032,6 +1033,11 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   box-shadow: 0 4px 14px rgba(255,80,0,0.45);
   width: min(360px, 92vw);
   -webkit-tap-highlight-color: transparent;
+  /* フィードバックボタン(高さ約44px)のちょうど上に固定 */
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(72px + 44px + 8px + env(safe-area-inset-bottom, 0px));
+  z-index: 51;
 }
 
 #skip-tutorial-btn {
@@ -2671,7 +2677,7 @@ body.game-ended #skill-bar {
   #menu-settings-btn   { min-height: 48px; }
   #resume-btn,
   #reset-btn           { padding: 16px 48px; }
-  #start-btn           { padding: 18px 20px; }
+  #start-btn           { padding: 18px 20px; bottom: calc(72px + 44px + 8px + env(safe-area-inset-bottom, 0px)); }
   .ach-open-btn        { padding: 12px 28px; font-size: 15px; }
   #ach-back-btn        { padding: 14px 0; font-size: 16px; }
   /* 表示名編集ボタンも少し広く */
