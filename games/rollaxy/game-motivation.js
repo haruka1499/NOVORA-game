@@ -197,10 +197,18 @@ function _motivGetAchProgress(cat, it) {
     const cur = parseInt(localStorage.getItem(STORAGE_KEYS.TOTAL_MERGES) || '0', 10);
     return { cur, max: it.mergeThreshold, unitJa: '回', unitEn: ' merges', unitZh: '次' };
   }
-  // 連鎖系 (累計)
+  // 累計連鎖系 (chain_total)
   if (cat.id === 'chain_total' && it.mergeThreshold) {
     const cur = parseInt(localStorage.getItem(STORAGE_KEYS.TOTAL_CHAINS) || '0', 10);
     return { cur, max: it.mergeThreshold, unitJa: '回', unitEn: ' chains', unitZh: '次' };
+  }
+  // 連鎖レベル別 (chain5/chain6/.../chain9)
+  if (typeof cat.chainLevel === 'number' && it.mergeThreshold) {
+    try {
+      const cc = JSON.parse(localStorage.getItem(STORAGE_KEYS.CHAIN_COUNTS) || '[]');
+      const cur = cc[cat.chainLevel] || 0;
+      return { cur, max: it.mergeThreshold, unitJa: '回', unitEn: ' times', unitZh: '次' };
+    } catch (_) { return null; }
   }
   // 天体種別合成
   if (typeof cat.bodyIndex === 'number' && it.mergeThreshold) {
