@@ -2291,6 +2291,22 @@ body.game-ended #skill-bar {
   display: flex; flex-direction: column; gap: 4px;
 }
 #home-my-stats:empty { display: none; }
+#home-my-stats { cursor: pointer; user-select: none; }
+/* 期間ラベル（今週 / 全期間） */
+.mys-header {
+  display: flex; justify-content: flex-end;
+  margin-bottom: 2px;
+}
+.mys-period {
+  font-size: 11px; color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.07);
+  border-radius: 8px; padding: 2px 8px;
+  letter-spacing: 0.03em;
+}
+.mys-period--all {
+  color: #b89eff;
+  background: rgba(154,124,255,0.18);
+}
 .mys-row {
   display: flex; align-items: center; gap: 6px;
 }

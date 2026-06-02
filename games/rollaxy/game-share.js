@@ -73,9 +73,9 @@ async function _createShare() {
       addMyShareId(id, shareScore, _shareMode); // share_ids / best_share_id を localStorage に記録
       // OGP 画像をバックグラウンドで生成（fire-and-forget）
       fetch(`/games/rollaxy/ogp/${id}`).catch(() => {});
-      // 上位%を計算してゲームオーバー画面に表示（直近24h基準）
-      if (periods && typeof periods === 'object' && periods.today) {
-        const { rank, total } = periods.today;
+      // 上位%を計算してゲームオーバー画面に表示（今週ベース）
+      if (periods && typeof periods === 'object' && periods.week) {
+        const { rank, total } = periods.week;
         if (total > 0) {
           const raw    = rank / total * 100;
           const pct    = Math.min(99.9, Math.max(0.1, Math.round(raw * 10) / 10));

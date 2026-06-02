@@ -687,7 +687,10 @@ function init() {
 }
 
 // ── スコアサマリー（ホーム画面：やる気メッセージとスタートの間） ──
-// ローカルベストを即時描画し、_motivRankCache が埋まれば全期間順位も表示する。
+// デフォルト: 今週ベース。タップで全期間に切替 → 30秒後に今週へ戻る。
+let _myStatsPeriod      = 'weekly';
+let _myStatsRevertTimer = null;
+
 function _renderMyStats() {
   const el = document.getElementById('home-my-stats');
   if (!el) return;
@@ -699,21 +702,20 @@ function _renderMyStats() {
   const spdUnlocked  = typeof isModeUnlocked === 'function' && isModeUnlocked('speedrun');
   const timeUnlocked = typeof isModeUnlocked === 'function' && isModeUnlocked('time');
 
-  // ランクは _motivRankCache (game-motivation.js) の all 期間データから share_id で特定
   const myIdEnd = localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID)           || '';
   const myIdTim = localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID_TIME)      || '';
   const myIdSpd = localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID_SPEEDRUN)  || '';
 
   function _rank(mode, myId) {
     if (!myId || typeof _motivRankCache === 'undefined' || !_motivRankCache?.data) return null;
-    const r = _motivRankCache.data.find(d => d.mode === mode && d.period === 'all');
+    const r = _motivRankCache.data.find(d => d.mode === mode && d.period === _myStatsPeriod);
     if (!r) return null;
     const idx = r.entries.findIndex(e => e.id === myId);
     return idx >= 0 ? idx + 1 : null;
   }
 
   function _row(modeObj, scoreStr, rank) {
-    const label = modeObj ? modeName(modeObj) : '---';
+    const label   = modeObj ? modeName(modeObj) : '---';
     const rankStr = rank ? T('myStatsRank')(rank) : '';
     return `<div class="mys-row">`
       + `<span class="mys-mode">${label}</span>`
@@ -725,27 +727,38 @@ function _renderMyStats() {
   const pt   = T('myStatsPt');
   const rows = [];
 
-  // エンドレス（常に表示）
-  rows.push(_row(
-    CFG.MODES.find(m => m.id === 'endless'),
-    bEnd > 0 ? `${bEnd.toLocaleString()}${pt}` : '---',
-    _rank('endless', myIdEnd)
-  ));
-  // タイムアタック
-  if (timeUnlocked) rows.push(_row(
-    CFG.MODES.find(m => m.id === 'time'),
-    bTim > 0 ? `${bTim.toLocaleString()}${pt}` : '---',
-    _rank('time', myIdTim)
-  ));
-  // スピードラン（タイム表示）
-  if (spdUnlocked) rows.push(_row(
-    CFG.MODES.find(m => m.id === 'speedrun'),
-    bSpd > 0 ? _formatSpeedrunTime(bSpd) : '---',
-    _rank('speedrun', myIdSpd)
-  ));
+  rows.push(_row(CFG.MODES.find(m => m.id === 'endless'),
+    bEnd > 0 ? `${bEnd.toLocaleString()}${pt}` : '---', _rank('endless', myIdEnd)));
+  if (timeUnlocked) rows.push(_row(CFG.MODES.find(m => m.id === 'time'),
+    bTim > 0 ? `${bTim.toLocaleString()}${pt}` : '---', _rank('time', myIdTim)));
+  if (spdUnlocked)  rows.push(_row(CFG.MODES.find(m => m.id === 'speedrun'),
+    bSpd > 0 ? _formatSpeedrunTime(bSpd) : '---', _rank('speedrun', myIdSpd)));
 
-  el.innerHTML = rows.join('');
+  const periodLabel = _myStatsPeriod === 'weekly' ? T('tabWeekly') : T('tabAll');
+  const isAll       = _myStatsPeriod === 'all';
+  el.innerHTML = `<div class="mys-header">`
+    + `<span class="mys-period${isAll ? ' mys-period--all' : ''}">${periodLabel}</span>`
+    + `</div>`
+    + rows.join('');
 }
+
+// タップで今週⇔全期間を切替。全期間表示は30秒後に今週へ戻る。
+(function _initMyStatsTap() {
+  const el = document.getElementById('home-my-stats');
+  if (!el) return;
+  el.addEventListener('click', () => {
+    if (_myStatsRevertTimer) { clearTimeout(_myStatsRevertTimer); _myStatsRevertTimer = null; }
+    _myStatsPeriod = _myStatsPeriod === 'weekly' ? 'all' : 'weekly';
+    _renderMyStats();
+    if (_myStatsPeriod === 'all') {
+      _myStatsRevertTimer = setTimeout(() => {
+        _myStatsPeriod = 'weekly';
+        _myStatsRevertTimer = null;
+        _renderMyStats();
+      }, 30000);
+    }
+  });
+})();
 
 // 紹介動画パネルの表示制御。チュートリアル完了 or × で閉じた場合は非表示。
 // _introClosed はセッション限定（リロードでリセット）→ 未完了なら再訪問で再表示。
