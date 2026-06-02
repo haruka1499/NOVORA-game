@@ -72,6 +72,18 @@
   desktop(≥760px): 3列同時表示（左右にpeek）
 -->
 <div id="start-screen">
+  <!-- ゲーム紹介動画パネル (デスクトップの左スペースに表示。スマホ非表示。
+       チュートリアル完了/スキップ または ×ボタンで非表示。未完了なら再訪問時に再表示) -->
+  <div id="intro-video-panel">
+    <button id="intro-video-close" aria-label="Close">✕</button>
+    <video id="intro-video" muted loop playsinline preload="auto">
+      <source src="/videos/rollaxy_video.mp4" type="video/mp4">
+    </video>
+    <div id="intro-video-caption">
+      <div id="intro-video-name">Rollaxy</div>
+      <div id="intro-video-desc" data-i18n="introVideoDesc">天体を合成して銀河団を目指そう！</div>
+    </div>
+  </div>
   <div id="home-carousel">
 
     <!-- パネル1: プレイ（CENTER、現在は唯一のパネル） -->

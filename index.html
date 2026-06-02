@@ -53,13 +53,17 @@
   <p class="section-label" data-i18n="featured">Featured Games</p>
   <div class="game-grid">
 
-    <a href="games/rollaxy/index.html" class="game-card">
+    <a href="games/rollaxy/index.html" class="game-card has-video">
       <span class="play-now-btn" data-i18n="playNow">今すぐ遊ぶ ▶</span>
-      <div class="game-thumb">🌌</div>
-      <div class="game-info">
-        <h2>Rollaxy</h2>
-        <p data-i18n="rollaxyDesc">宇宙をテーマにした落ちものパズル。天体を合体させて銀河団を目指せ。</p>
-        <span class="game-badge">Puzzle</span>
+      <div class="game-card-body">
+        <video class="game-video" muted loop autoplay playsinline preload="metadata">
+          <source src="/videos/rollaxy_video.mp4" type="video/mp4">
+        </video>
+        <div class="game-info">
+          <h2>Rollaxy</h2>
+          <p data-i18n="rollaxyDesc">宇宙をテーマにした落ちものパズル。天体を合体させて銀河団を目指せ。</p>
+          <span class="game-badge">Puzzle</span>
+        </div>
       </div>
     </a>
 

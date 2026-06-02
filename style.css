@@ -153,6 +153,39 @@ main {
   filter: brightness(1.12);
 }
 
+/* ── 動画付きカード (縦動画 + 横に説明) ── */
+.game-card.has-video .game-card-body {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+}
+.game-video {
+  width: 38%;
+  flex-shrink: 0;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  background: #000;
+  border-right: 1px solid var(--card-border);
+  display: block;
+}
+.game-card.has-video .game-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+/* 縦に細い画面では動画を上、説明を下に積む */
+@media (max-width: 480px) {
+  .game-card.has-video .game-card-body { flex-direction: column; }
+  .game-video {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-right: none;
+    border-bottom: 1px solid var(--card-border);
+  }
+}
+
 /* ── Footer ── */
 .site-footer {
   text-align: center;

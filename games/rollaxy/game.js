@@ -676,7 +676,27 @@ function init() {
   if (typeof stopMotivationCycle === 'function') stopMotivationCycle();
   const _homeMotivEl = document.getElementById('home-motivation');
   if (_homeMotivEl && typeof startMotivationCycle === 'function') startMotivationCycle(_homeMotivEl);
+
+  _updateIntroVideo(); // 紹介動画の表示/非表示を更新
 }
+
+// 紹介動画パネルの表示制御。チュートリアル完了 or × で閉じた場合は非表示。
+// _introClosed はセッション限定（リロードでリセット）→ 未完了なら再訪問で再表示。
+let _introClosed = false;
+function _updateIntroVideo() {
+  const ss = document.getElementById('start-screen');
+  if (!ss) return;
+  const hide = (typeof isStageTutorialDone === 'function' && isStageTutorialDone()) || _introClosed;
+  ss.classList.toggle('intro-hidden', hide);
+  const vid = document.getElementById('intro-video');
+  if (vid) {
+    if (hide) { try { vid.pause(); } catch (_) {} }
+    else      { const p = vid.play && vid.play(); if (p && p.catch) p.catch(() => {}); }
+  }
+}
+// × ボタン: このセッション中は非表示
+const _introCloseBtn = document.getElementById('intro-video-close');
+if (_introCloseBtn) on(_introCloseBtn, () => { _introClosed = true; _updateIntroVideo(); });
 
 // 物理エンジン・壁・衝突イベントを再構築する（init からのみ呼ばれる）。
 // bmap などの状態リセット後に呼ぶこと。
@@ -2207,6 +2227,7 @@ function updateHomeNav() {
   document.getElementById('home-nav')?.classList.toggle('tutorial-only', !done);
   const skipBtn = document.getElementById('skip-tutorial-btn');
   if (skipBtn) skipBtn.style.display = done ? 'none' : '';
+  if (typeof _updateIntroVideo === 'function') _updateIntroVideo(); // チュートリアル完了/スキップで動画を消す
 }
 // チュートリアルスキップ
 const _skipTutorialBtn = document.getElementById('skip-tutorial-btn');
