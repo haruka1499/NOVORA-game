@@ -114,13 +114,14 @@ async function handleSharePost(request, env) {
   // ── スコア整合チェック ──
   // elapsed_ms / drop_count で明らかに異常なスコアを弾く。
   // 正常プレイなら 1 ドロップあたり最低 200ms・最大 1000 点程度が上限。
+  // speedrun スコアは 10_000_000 - elapsed_ms 形式のため score/drop 比チェックは除外。
   const { drop_count, elapsed_ms } = snapshot_payload;
   if (typeof drop_count === 'number' && typeof elapsed_ms === 'number' && drop_count > 0) {
     if (elapsed_ms < drop_count * 200) {
       console.warn(`[share] rejected: too fast elapsed_ms=${elapsed_ms} drop_count=${drop_count}`);
       return json({ error: 'invalid play data' }, 400, corsHeaders(origin));
     }
-    if (score / drop_count > 1000) {
+    if (mode !== 'speedrun' && score / drop_count > 1000) {
       console.warn(`[share] rejected: score/drop ratio score=${score} drop_count=${drop_count}`);
       return json({ error: 'invalid play data' }, 400, corsHeaders(origin));
     }
