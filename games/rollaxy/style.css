@@ -2356,6 +2356,13 @@ body.game-ended #skill-bar {
   transition: background 0.15s;
 }
 .motiv-goal-btn:hover { background: rgba(255,180,50,0.28); }
+/* #overlay button の汎用スタイルを上書きして統一デザインに */
+#overlay .motiv-goal-btn {
+  padding: 7px 12px; font-size: 12px; font-weight: 600;
+  background: rgba(255,180,50,0.15); border: 1px solid rgba(255,180,50,0.55);
+  color: #ffb832; border-radius: 8px; box-shadow: none;
+}
+#overlay .motiv-goal-btn:hover { background: rgba(255,180,50,0.28); }
 /* 目標達成ダイアログ */
 #goal-achieved-modal {
   display: none; position: fixed; inset: 0; z-index: 9100;
