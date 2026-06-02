@@ -172,11 +172,11 @@ function _motivPickAchievements() {
       if (remain <= 0) continue;
       const capL = (typeof currentLang === 'string')
         ? currentLang.charAt(0).toUpperCase() + currentLang.slice(1) : 'Ja';
-      const name = it['name' + capL] || it.nameJa;
+      const cond = it['cond' + capL] || it.condJa;
       items.push({
         weight: Math.max(5, Math.round(ratio * 18)), // 近いほど重み大
         ratio,
-        text: _mT('motivAch')(_motivFmtNum(remain), name),
+        text: _mT('motivAch')(_motivFmtNum(remain), cond),
       });
     }
   }
