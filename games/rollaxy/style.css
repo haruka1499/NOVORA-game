@@ -490,6 +490,11 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   box-sizing: border-box;
 }
 
+/* モード選択中: 選択肢と戻るボタン以外を非表示 */
+#start-screen.mode-selecting #panel-play > *:not(#mode-select-sheet),
+#start-screen.mode-selecting #start-btn,
+#start-screen.mode-selecting #feedback-start-btn { display: none; }
+
 /* プレイパネル: 縦中央寄せ。下部に固定ボタン2つ（スタート+フィードバック）分の余白を確保 */
 #panel-play {
   justify-content: center;
