@@ -336,6 +336,7 @@ const STORAGE_KEYS = {
   CLUSTER_VANISH:     'rollaxy_cluster_vanish',
   CLUSTER_COUNT:      'rollaxy_cluster_count',
   ACH:                'rollaxy_ach',
+  ACTIVE_GOAL:        'rollaxy_active_goal',   // 目標モード中のゴール設定 (JSON)
   LAST_MODE:          'rollaxy_last_mode',     // 最後に選んだモードID
   STAGE_CLEARED:      'rollaxy_stage_cleared',  // クリア済みステージID配列(JSON)
   PLAYER_LEVEL:       'rollaxy_player_level',   // プレイヤーレベル（将来のモード解禁用）

@@ -258,6 +258,12 @@
         <div id="tut-hud-desc"></div>
         <div id="tut-hud-progress"></div>
       </div>
+      <!-- 目標モード HUD（エンドレス中にゴールがある場合） -->
+      <div id="goal-hud" style="display:none">
+        <div id="goal-hud-label">🎯 目標</div>
+        <div id="goal-hud-desc"></div>
+        <div id="goal-hud-progress"></div>
+      </div>
     </div>
     <div id="header-right">
       <div id="next-wrap">
@@ -313,6 +319,17 @@
       <div id="mode-unlock-icon">🎉</div>
       <div id="mode-unlock-title"></div>
       <button id="mode-unlock-close"></button>
+    </div>
+  </div>
+  <!-- 目標達成ダイアログ -->
+  <div id="goal-achieved-modal">
+    <div id="goal-achieved-panel">
+      <div id="goal-achieved-title"></div>
+      <div id="goal-achieved-desc"></div>
+      <div id="goal-achieved-btns">
+        <button id="goal-continue-btn"></button>
+        <button id="goal-home-btn"></button>
+      </div>
     </div>
   </div>
   <div id="settings-overlay">

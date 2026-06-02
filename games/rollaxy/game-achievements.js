@@ -134,6 +134,7 @@ function _unlockAch(id) {
   if (_unlocked.has(id)) return;
   _unlocked.add(id);
   _saveAch();
+  document.dispatchEvent(new CustomEvent('ach_unlocked', { detail: { id } }));
   _syncToServer(id); // バックグラウンドでサーバーに記録（失敗しても続行）
   _toastQ.push(id);
   if (!_toastBusy) _showNextToast();

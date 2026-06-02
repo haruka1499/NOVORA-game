@@ -384,6 +384,10 @@ function unlockMode(modeId, showPopup = true) {
   s.add(modeId);
   localStorage.setItem(STORAGE_KEYS.UNLOCKED_MODES, JSON.stringify([...s]));
   if (showPopup) showModeUnlockPopup(modeId);
+  // 解放ゴールのチェック（少し遅延して解放ポップアップと被らないようにする）
+  if (_activeGoal?.type === 'unlock' && _activeGoal.modeId === modeId) {
+    setTimeout(() => _onGoalAchieved(), 1500);
+  }
   return true;
 }
 // flushMerges / 強化スキル両経路から呼ばれる解放判定。
@@ -683,6 +687,7 @@ function init() {
     _motivFetchRankings().then(() => _renderMyStats()).catch(() => {});
   }
 
+  _loadGoal(); // 永続ゴールを復元（リトライ時も引き継ぐ）
   _updateIntroVideo(); // 紹介動画の表示/非表示を更新
 }
 
@@ -759,6 +764,137 @@ function _renderMyStats() {
     }
   });
 })();
+
+// ============================================================
+// 目標モード — やる気メッセージから目標を設定してエンドレスを始める
+// ============================================================
+let _activeGoal          = null;  // 現在の目標 {type, displayText, ...}
+let _goalAchievedHandled = false; // 同一ゲーム内で二重発火を防ぐ
+
+function _loadGoal() {
+  try { _activeGoal = JSON.parse(localStorage.getItem(STORAGE_KEYS.ACTIVE_GOAL) || 'null'); }
+  catch (_) { _activeGoal = null; }
+}
+function _saveGoalToStorage() {
+  if (_activeGoal) localStorage.setItem(STORAGE_KEYS.ACTIVE_GOAL, JSON.stringify(_activeGoal));
+  else localStorage.removeItem(STORAGE_KEYS.ACTIVE_GOAL);
+}
+function _clearGoal() {
+  _activeGoal = null;
+  localStorage.removeItem(STORAGE_KEYS.ACTIVE_GOAL);
+}
+
+// やる気メッセージの「目標にしてプレイ」ボタンから呼ばれる
+function _startGoalGame(goal) {
+  if (!goal) return;
+  _activeGoal = goal;
+  _saveGoalToStorage();
+  // ゲームオーバー後 or ホーム画面からスタート
+  if (!startScreen.classList.contains('hidden')) {
+    // ホーム画面から: モード選択シートを閉じてエンドレス開始
+    currentModeId = 'endless';
+    _closeModeSelectSheet();
+    if (_hasEndlessSave()) { _openEndlessResumeDialog(); } else { beginGame('endless'); }
+  } else {
+    // ゲームオーバー画面から: init → エンドレス開始
+    init();
+    if (_hasEndlessSave()) { _openEndlessResumeDialog(); } else { beginGame('endless'); }
+  }
+}
+// game-motivation.js の _motivOnGoalSelect に接続（motivation.js ロード後に設定）
+_motivOnGoalSelect = _startGoalGame;
+
+// ── goal-hud 更新（updateHUD / updateStageObjective から呼ぶ） ──
+function _updateGoalHUD() {
+  const el = document.getElementById('goal-hud');
+  if (!el) return;
+  if (waiting || dead || curMode()?.type !== 'endless' || !_activeGoal) {
+    el.style.display = 'none'; return;
+  }
+  const g = _activeGoal;
+  const descEl = document.getElementById('goal-hud-desc');
+  const progEl = document.getElementById('goal-hud-progress');
+  if (descEl) descEl.textContent = g.displayText || '';
+  if (progEl) {
+    let prog = '';
+    if (g.type === 'rank' || g.type === 'best') {
+      const target = g.type === 'rank' ? g.targetScore : (g.currentBest + 1);
+      if (target > 0) prog = `${score.toLocaleString()} / ${target.toLocaleString()}`;
+    } else if (g.type === 'ach') {
+      if (g.catId === 'score') {
+        prog = `${score.toLocaleString()} / ${g.targetCount.toLocaleString()}`;
+      } else if (g.catId === 'merge') {
+        const base = parseInt(localStorage.getItem(STORAGE_KEYS.TOTAL_MERGES) || '0', 10);
+        prog = `${(base + _mergeCount).toLocaleString()} / ${g.targetCount.toLocaleString()}`;
+      } else if (typeof g.bodyIndex === 'number') {
+        try {
+          const bm = JSON.parse(localStorage.getItem(STORAGE_KEYS.BODY_MERGES) || '[]');
+          prog = `${((bm[g.bodyIndex] || 0) + (_bodyMergeCount[g.bodyIndex] || 0)).toLocaleString()} / ${g.targetCount.toLocaleString()}`;
+        } catch(_) {}
+      } else if (g.catId === 'chain_total') {
+        const base = parseInt(localStorage.getItem(STORAGE_KEYS.TOTAL_CHAINS) || '0', 10);
+        prog = `${(base + _chainEventCount).toLocaleString()} / ${g.targetCount.toLocaleString()}`;
+      } else if (typeof g.chainLevel === 'number') {
+        const base = JSON.parse(localStorage.getItem(STORAGE_KEYS.CHAIN_COUNTS) || '[]');
+        prog = `${((base[g.chainLevel] || 0) + (_chainCountsByLevel[g.chainLevel] || 0)).toLocaleString()} / ${g.targetCount.toLocaleString()}`;
+      }
+    }
+    progEl.textContent = prog;
+  }
+  el.style.display = 'block';
+}
+
+// ── score 変化時にランク/ベスト目標を即チェック ──
+function _checkGoalByScore() {
+  if (!_activeGoal || _goalAchievedHandled || dead || waiting || curMode()?.type !== 'endless') return;
+  const g = _activeGoal;
+  if ((g.type === 'rank' && score > g.targetScore) ||
+      (g.type === 'best' && score > g.currentBest)) {
+    _onGoalAchieved();
+  }
+}
+
+// ── 目標達成処理 ──
+function _onGoalAchieved() {
+  if (_goalAchievedHandled) return;
+  _goalAchievedHandled = true;
+  const modal = document.getElementById('goal-achieved-modal');
+  if (!modal) return;
+  const titleEl = document.getElementById('goal-achieved-title');
+  const descEl  = document.getElementById('goal-achieved-desc');
+  const contBtn = document.getElementById('goal-continue-btn');
+  const homeBtn = document.getElementById('goal-home-btn');
+  if (titleEl) titleEl.textContent = T('goalAchievedTitle');
+  if (descEl)  descEl.textContent  = _activeGoal?.displayText || '';
+  if (contBtn) contBtn.textContent = T('goalContinue');
+  if (homeBtn) homeBtn.textContent = T('goalSaveHome');
+  modal.classList.add('show');
+  if (eng?.timing) eng.timing.timeScale = 0; // 物理一時停止
+}
+
+// ダイアログの2ボタン
+(function _bindGoalAchievedBtns() {
+  const modal = document.getElementById('goal-achieved-modal');
+  on(document.getElementById('goal-continue-btn'), () => {
+    // 目標をクリアして続行
+    _clearGoal();
+    modal?.classList.remove('show');
+    if (eng?.timing) eng.timing.timeScale = 1;
+  });
+  on(document.getElementById('goal-home-btn'), () => {
+    // セーブしてホームへ（auto-saveに任せてinit）
+    _clearGoal();
+    modal?.classList.remove('show');
+    init();
+  });
+})();
+
+// 実績解放イベントをリッスン（game-achievements.js から dispatch される）
+document.addEventListener('ach_unlocked', ({ detail: { id } }) => {
+  if (_activeGoal?.type === 'ach' && _activeGoal.achId === id && !dead && !waiting) {
+    setTimeout(() => _onGoalAchieved(), 300); // トースト表示と被らないよう少し遅延
+  }
+});
 
 // 紹介動画パネルの表示制御。チュートリアル完了 or × で閉じた場合は非表示。
 // _introClosed はセッション限定（リロードでリセット）→ 未完了なら再訪問で再表示。
@@ -1635,6 +1771,8 @@ function updateHUD() {
     scoreEl.textContent = `${T('score')}: ${score}`;
   }
   achCheckScore(score);
+  _updateGoalHUD();
+  _checkGoalByScore();
   // チュートリアルではスコアが進捗指標になるステージがあるため、HUDも同期更新
   if (_m && _m.type === 'tutorial') updateStageObjective();
   const _ni = bodyImages[nxtBi];
@@ -2443,6 +2581,9 @@ function _tryUnlockAudio() {
 }
 
 function beginGame(modeId = currentModeId, stageId = currentStageId) {
+  _goalAchievedHandled = false; // 新ゲーム開始で達成フラグリセット
+  // ゴールがあるが endless 以外で始まる場合はクリア（安全策）
+  if (_activeGoal && modeId !== 'endless') _clearGoal();
   // モード/ステージを確定して記録（未解禁・無効ならデフォルトへフォールバック）。
   const m = CFG.MODES.find(x => x.id === modeId && isUnlocked(x)) || curMode();
   currentModeId = m.id;

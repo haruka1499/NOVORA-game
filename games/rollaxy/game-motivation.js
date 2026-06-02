@@ -30,6 +30,9 @@ let _motivRankCache = null;                  // {ts, data: [{mode, period, entri
 let _motivTimer     = null;
 let _motivTargetEl  = null;
 let _motivLastMessage = null;                // 直前と同じテキストを避けるため
+let _motivCurrentGoal = null;               // 現在表示中のメッセージに紐づくゴール
+// game.js からセット: 目標ボタンが押されたときに呼ぶコールバック
+var _motivOnGoalSelect = null;
 
 function _motivFmtNum(n) { return Math.floor(n).toLocaleString(); }
 function _motivFmtTime(ms) {
@@ -92,19 +95,23 @@ function _motivBuildCandidates() {
   const speedrunUnlocked = typeof isModeUnlocked === 'function' && isModeUnlocked('speedrun');
   const timeUnlocked     = typeof isModeUnlocked === 'function' && isModeUnlocked('time');
   if (!speedrunUnlocked) {
-    out.push({ weight: 40, text: _mT('motivUnlockSpeedrun') });
+    const txt = _mT('motivUnlockSpeedrun');
+    out.push({ weight: 40, text: txt, goal: { type:'unlock', modeId:'speedrun', requiredTier:8, displayText:txt } });
   } else if (!timeUnlocked) {
-    out.push({ weight: 35, text: _mT('motivUnlockTime') });
+    const txt = _mT('motivUnlockTime');
+    out.push({ weight: 35, text: txt, goal: { type:'unlock', modeId:'time', requiredTier:11, displayText:txt } });
   }
 
-  // B. 自己ベスト
+  // B. 自己ベスト（エンドレスのみゴール対応）
   const bEnd  = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SCORE)       || '0', 10);
   const bTime = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SCORE_TIME)  || '0', 10);
   const bSpd  = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SPEEDRUN_MS) || '0', 10);
   if (bEnd > 0) {
-    out.push({ weight: 12, text: _mT('motivBestEndless')(_motivFmtNum(bEnd)) });
+    const txt = _mT('motivBestEndless')(_motivFmtNum(bEnd));
+    out.push({ weight: 12, text: txt, goal: { type:'best', mode:'endless', currentBest:bEnd, displayText:txt } });
   } else {
-    out.push({ weight: 16, text: _mT('motivBestEndlessNone') });
+    const txt = _mT('motivBestEndlessNone');
+    out.push({ weight: 16, text: txt, goal: { type:'best', mode:'endless', currentBest:0, displayText:txt } });
   }
   if (speedrunUnlocked) {
     if (bSpd > 0) out.push({ weight: 12, text: _mT('motivBestSpeedrun')(_motivFmtTime(bSpd)) });
@@ -115,36 +122,41 @@ function _motivBuildCandidates() {
     else           out.push({ weight: 16, text: _mT('motivBestTimeNone') });
   }
 
-  // C. ランキング (キャッシュがあるときだけ)
+  // C. ランキング（エンドレスのみゴール対応）
   if (_motivRankCache && _motivRankCache.data) {
     const myPid = (typeof getPlayerId === 'function') ? getPlayerId() : null;
     for (const r of _motivRankCache.data) {
       const mLab = _motivModeLabel(r.mode);
       const pLab = _motivPeriodLabel(r.period);
       const myIdx = myPid ? r.entries.findIndex(e => e.player_id === myPid) : -1;
+      const isEndless = (r.mode === 'endless');
       if (myIdx === 0) {
         out.push({ weight: 14, text: _mT('motivRankTop')(mLab, pLab) });
       } else if (myIdx > 0) {
         const me = r.entries[myIdx];
         const up = r.entries[myIdx - 1];
         if (r.mode === 'speedrun') {
-          // score = 10_000_000 - ms。score 差 = ms 差 (大きい方が上)
           const diffMs = up.score - me.score;
           out.push({ weight: 13, text: _mT('motivRankCloseTime')(mLab, pLab, _motivFmtTime(diffMs), myIdx) });
         } else {
           const diff = up.score - me.score;
-          out.push({ weight: 13, text: _mT('motivRankCloseScore')(mLab, pLab, _motivFmtNum(diff), myIdx) });
+          const txt = _mT('motivRankCloseScore')(mLab, pLab, _motivFmtNum(diff), myIdx);
+          out.push({ weight: 13, text: txt,
+            goal: isEndless ? { type:'rank', mode:'endless', targetScore:up.score, displayText:txt } : null });
         }
       } else if (r.entries.length > 0) {
-        // 圏外。トップとの差を提示
         const top = r.entries[0];
         if (r.mode === 'speedrun') {
           out.push({ weight: 6, text: _mT('motivRankTopTime')(mLab, pLab, _motivFmtTime(10_000_000 - top.score)) });
         } else {
-          out.push({ weight: 6, text: _mT('motivRankTopScore')(mLab, pLab, _motivFmtNum(top.score)) });
+          const txt = _mT('motivRankTopScore')(mLab, pLab, _motivFmtNum(top.score));
+          out.push({ weight: 6, text: txt,
+            goal: isEndless ? { type:'rank', mode:'endless', targetScore:top.score, displayText:txt } : null });
         }
       } else {
-        out.push({ weight: 5, text: _mT('motivRankEmpty')(mLab, pLab) });
+        const txt = _mT('motivRankEmpty')(mLab, pLab);
+        out.push({ weight: 5, text: txt,
+          goal: isEndless ? { type:'rank', mode:'endless', targetScore:0, displayText:txt } : null });
       }
     }
   }
@@ -175,10 +187,19 @@ function _motivPickAchievements() {
       const cond = it['cond' + capL] || it.condJa;
       const unitMap = { Ja: unitJa, En: unitEn, Zh: unitZh };
       const unit = unitMap[capL] ?? unitJa;
+      const motivText = _mT('motivAch')(_motivFmtNum(remain) + unit, cond);
       items.push({
         weight: Math.max(5, Math.round(ratio * 18)), // 近いほど重み大
         ratio,
-        text: _mT('motivAch')(_motivFmtNum(remain) + unit, cond),
+        text: motivText,
+        goal: {
+          type: 'ach', achId: it.id, catId: cat.id,
+          bodyIndex:  typeof cat.bodyIndex  === 'number' ? cat.bodyIndex  : null,
+          chainLevel: typeof cat.chainLevel === 'number' ? cat.chainLevel : null,
+          targetCount: max, savedCount: cur,
+          unitJa, unitEn, unitZh,
+          displayText: motivText,
+        },
       });
     }
   }
@@ -221,6 +242,7 @@ function _motivGetAchProgress(cat, it) {
   return null;
 }
 
+// フルオブジェクト {text, goal} を返す
 function _motivWeightedPick(list, excludeText) {
   if (list.length === 0) return null;
   let filtered = excludeText ? list.filter(c => c.text !== excludeText) : list;
@@ -230,26 +252,28 @@ function _motivWeightedPick(list, excludeText) {
   let r = Math.random() * total;
   for (const c of filtered) {
     r -= c.weight;
-    if (r <= 0) return c.text;
+    if (r <= 0) return c;
   }
-  return filtered[filtered.length - 1].text;
+  return filtered[filtered.length - 1];
 }
 
 // ── 公開 API ──
+// callback(text, goal|null) で呼び出す
 function pickMotivationMessage(callback) {
   const local = _motivWeightedPick(_motivBuildCandidates(), _motivLastMessage);
-  if (local) { _motivLastMessage = local; callback(local); }
+  if (local) { _motivLastMessage = local.text; callback(local.text, local.goal || null); }
   // ランキング非同期。完了後、より豊富な候補で 1 度だけ再選択
   _motivFetchRankings().then(() => {
     const full = _motivWeightedPick(_motivBuildCandidates(), _motivLastMessage);
-    if (full) { _motivLastMessage = full; callback(full); }
+    if (full) { _motivLastMessage = full.text; callback(full.text, full.goal || null); }
   }).catch(() => {});
 }
 
 let _motivCurrentText = '';
 
-// メッセージ + 残り時間バーを要素内に描画。バーは MOTIV_CYCLE_MS で空になる。
-function _motivRenderInto(el, msg) {
+// メッセージ + 残り時間バー + 目標ボタンを要素内に描画。
+function _motivRenderInto(el, msg, goal) {
+  _motivCurrentGoal = goal || null;
   let textEl = el.querySelector('.motiv-text');
   let barEl  = el.querySelector('.motiv-bar-fill');
   if (!textEl) {
@@ -262,8 +286,26 @@ function _motivRenderInto(el, msg) {
   _motivCurrentText = msg;
   if (barEl) {
     barEl.style.animation = 'none';
-    void barEl.offsetWidth; // reflow でアニメーションをリセット
+    void barEl.offsetWidth;
     barEl.style.animation = `motivBarDeplete ${MOTIV_CYCLE_MS}ms linear forwards`;
+  }
+  // 目標ボタン（goal がある場合のみ表示）
+  let btnEl = el.querySelector('.motiv-goal-btn');
+  if (goal) {
+    if (!btnEl) {
+      btnEl = document.createElement('button');
+      btnEl.className = 'motiv-goal-btn';
+      el.appendChild(btnEl);
+      btnEl.addEventListener('click', (e) => {
+        e.stopPropagation(); // 詳細モーダルを開かないようにする
+        if (typeof _motivOnGoalSelect === 'function' && _motivCurrentGoal) {
+          _motivOnGoalSelect(_motivCurrentGoal);
+        }
+      });
+    }
+    btnEl.textContent = (typeof T === 'function') ? T('motivGoalBtn') : '目標にしてプレイ';
+  } else if (btnEl) {
+    btnEl.remove();
   }
 }
 
@@ -278,9 +320,9 @@ function _motivShowNext(immediate) {
   const el = _motivTargetEl;
   if (!el) return;
   const apply = () => {
-    pickMotivationMessage((msg) => {
+    pickMotivationMessage((msg, goal) => {
       if (_motivTargetEl !== el) return;
-      _motivRenderInto(el, msg);
+      _motivRenderInto(el, msg, goal);
       el.classList.remove('motiv-fading');
     });
     _motivScheduleNext();
