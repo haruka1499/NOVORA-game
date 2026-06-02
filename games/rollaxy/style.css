@@ -1026,10 +1026,11 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   transition: background 0.15s;
 }
 #start-btn {
-  padding: 13px 48px; font-size: 20px; font-weight: bold;
+  padding: 16px 20px; font-size: 20px; font-weight: bold;
   background: linear-gradient(135deg, #ff7722, #ff4400);
-  color: #fff; border: none; border-radius: 30px; cursor: pointer;
+  color: #fff; border: none; border-radius: 16px; cursor: pointer;
   box-shadow: 0 4px 14px rgba(255,80,0,0.45);
+  width: min(360px, 92vw);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -2669,8 +2670,8 @@ body.game-ended #skill-bar {
   #settings-back-btn,
   #menu-settings-btn   { min-height: 48px; }
   #resume-btn,
-  #reset-btn,
-  #start-btn           { padding: 16px 48px; }
+  #reset-btn           { padding: 16px 48px; }
+  #start-btn           { padding: 18px 20px; }
   .ach-open-btn        { padding: 12px 28px; font-size: 15px; }
   #ach-back-btn        { padding: 14px 0; font-size: 16px; }
   /* 表示名編集ボタンも少し広く */
