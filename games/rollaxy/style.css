@@ -2289,6 +2289,7 @@ body.game-ended #skill-bar {
 .mys-mode {
   flex: 1 1 0; font-size: 12px; color: rgba(255,255,255,0.55);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: left;
 }
 .mys-score {
   flex: 0 0 auto; font-size: 13px; font-weight: bold; color: #fff;
