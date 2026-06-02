@@ -72,8 +72,10 @@ async function handleSharePost(request, env) {
   const mode = VALID_MODES.includes(rawMode) ? rawMode : 'endless';
 
   // ── 基本バリデーション ──
-  if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 999999) {
-    console.warn(`[share] rejected: invalid score=${score}`);
+  // speedrun スコアは 10_000_000 - elapsed_ms 形式（最大 9_999_999）
+  const maxScore = mode === 'speedrun' ? 9_999_999 : 999_999;
+  if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > maxScore) {
+    console.warn(`[share] rejected: invalid score=${score} mode=${mode}`);
     return json({ error: 'invalid score' }, 400, corsHeaders(origin));
   }
   if (typeof highest_body_tier !== 'number' || !Number.isInteger(highest_body_tier)
@@ -85,7 +87,8 @@ async function handleSharePost(request, env) {
     console.warn(`[share] rejected: missing snapshot_payload`);
     return json({ error: 'Missing required fields' }, 400, corsHeaders(origin));
   }
-  if (score < MIN_SCORE_FOR_TIER[highest_body_tier]) {
+  // speedrun は時間ベーススコアのため MIN_SCORE_FOR_TIER チェックを省略
+  if (mode !== 'speedrun' && score < MIN_SCORE_FOR_TIER[highest_body_tier]) {
     console.warn(`[share] rejected: score/tier mismatch score=${score} tier=${highest_body_tier} min=${MIN_SCORE_FOR_TIER[highest_body_tier]}`);
     return json({ error: 'score/tier mismatch' }, 400, corsHeaders(origin));
   }
