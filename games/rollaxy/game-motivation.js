@@ -164,7 +164,7 @@ function _motivPickAchievements() {
       if (_unlocked.has(it.id)) continue;
       const progress = _motivGetAchProgress(cat, it);
       if (!progress) continue;
-      const { cur, max } = progress;
+      const { cur, max, unitJa = '', unitEn = '', unitZh = '' } = progress;
       if (max <= 0) continue;
       const ratio  = Math.min(1, cur / max);
       if (ratio < 0.4) continue; // 進捗 40% 未満は遠いので除外
@@ -173,10 +173,12 @@ function _motivPickAchievements() {
       const capL = (typeof currentLang === 'string')
         ? currentLang.charAt(0).toUpperCase() + currentLang.slice(1) : 'Ja';
       const cond = it['cond' + capL] || it.condJa;
+      const unitMap = { Ja: unitJa, En: unitEn, Zh: unitZh };
+      const unit = unitMap[capL] ?? unitJa;
       items.push({
         weight: Math.max(5, Math.round(ratio * 18)), // 近いほど重み大
         ratio,
-        text: _mT('motivAch')(_motivFmtNum(remain), cond),
+        text: _mT('motivAch')(_motivFmtNum(remain) + unit, cond),
       });
     }
   }
@@ -188,24 +190,24 @@ function _motivGetAchProgress(cat, it) {
   // スコア系
   if (cat.id === 'score' && it.scoreThreshold) {
     const cur = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SCORE) || '0', 10);
-    return { cur, max: it.scoreThreshold };
+    return { cur, max: it.scoreThreshold, unitJa: '点', unitEn: ' pts', unitZh: '分' };
   }
   // 合成系 (累計)
   if (cat.id === 'merge' && it.mergeThreshold) {
     const cur = parseInt(localStorage.getItem(STORAGE_KEYS.TOTAL_MERGES) || '0', 10);
-    return { cur, max: it.mergeThreshold };
+    return { cur, max: it.mergeThreshold, unitJa: '回', unitEn: ' merges', unitZh: '次' };
   }
   // 連鎖系 (累計)
   if (cat.id === 'chain_total' && it.mergeThreshold) {
     const cur = parseInt(localStorage.getItem(STORAGE_KEYS.TOTAL_CHAINS) || '0', 10);
-    return { cur, max: it.mergeThreshold };
+    return { cur, max: it.mergeThreshold, unitJa: '回', unitEn: ' chains', unitZh: '次' };
   }
   // 天体種別合成
   if (typeof cat.bodyIndex === 'number' && it.mergeThreshold) {
     try {
       const bm = JSON.parse(localStorage.getItem(STORAGE_KEYS.BODY_MERGES) || '{}');
       const cur = (bm[String(cat.bodyIndex)] || 0);
-      return { cur, max: it.mergeThreshold };
+      return { cur, max: it.mergeThreshold, unitJa: '回', unitEn: ' merges', unitZh: '次' };
     } catch (_) { return null; }
   }
   return null;
