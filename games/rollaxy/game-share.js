@@ -73,6 +73,11 @@ async function _createShare() {
       addMyShareId(id, shareScore, _shareMode); // share_ids / best_share_id を localStorage に記録
       // OGP 画像をバックグラウンドで生成（fire-and-forget）
       fetch(`/games/rollaxy/ogp/${id}`).catch(() => {});
+      // ランクキャッシュを無効化して再フェッチ → ホーム画面の順位を最新化
+      if (typeof _motivRankCache !== 'undefined') _motivRankCache = null;
+      if (typeof _motivFetchRankings === 'function' && typeof _renderMyStats === 'function') {
+        _motivFetchRankings().then(() => _renderMyStats()).catch(() => {});
+      }
       // 上位%を計算してゲームオーバー画面に表示（今週ベース）
       if (periods && typeof periods === 'object' && periods.week) {
         const { rank, total } = periods.week;

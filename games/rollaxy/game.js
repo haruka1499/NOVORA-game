@@ -688,13 +688,24 @@ function init() {
   }
 
   _loadGoal(); // 永続ゴールを復元（リトライ時も引き継ぐ）
+
+  // ホーム画面の順位を3分ごとに自動更新（キャッシュ無効化 → 再フェッチ）
+  if (_myStatsRefreshTimer) clearInterval(_myStatsRefreshTimer);
+  _myStatsRefreshTimer = setInterval(() => {
+    if (typeof _motivRankCache !== 'undefined') _motivRankCache = null;
+    if (typeof _motivFetchRankings === 'function') {
+      _motivFetchRankings().then(() => _renderMyStats()).catch(() => {});
+    }
+  }, 3 * 60 * 1000);
+
   _updateIntroVideo(); // 紹介動画の表示/非表示を更新
 }
 
 // ── スコアサマリー（ホーム画面：やる気メッセージとスタートの間） ──
 // デフォルト: 今週ベース。タップで全期間に切替 → 30秒後に今週へ戻る。
-let _myStatsPeriod      = 'weekly';
-let _myStatsRevertTimer = null;
+let _myStatsPeriod       = 'weekly';
+let _myStatsRevertTimer  = null;
+let _myStatsRefreshTimer = null; // 3分ごとの定期更新タイマー
 
 function _renderMyStats() {
   const el = document.getElementById('home-my-stats');
@@ -2584,6 +2595,8 @@ function beginGame(modeId = currentModeId, stageId = currentStageId) {
   _goalAchievedHandled = false; // 新ゲーム開始で達成フラグリセット
   // ゴールがあるが endless 以外で始まる場合はクリア（安全策）
   if (_activeGoal && modeId !== 'endless') _clearGoal();
+  // ホーム画面の定期更新タイマーを停止
+  if (_myStatsRefreshTimer) { clearInterval(_myStatsRefreshTimer); _myStatsRefreshTimer = null; }
   // モード/ステージを確定して記録（未解禁・無効ならデフォルトへフォールバック）。
   const m = CFG.MODES.find(x => x.id === modeId && isUnlocked(x)) || curMode();
   currentModeId = m.id;
