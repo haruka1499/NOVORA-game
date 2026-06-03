@@ -295,6 +295,7 @@ function _motivRenderInto(el, msg, goal) {
     if (!btnEl) {
       btnEl = document.createElement('button');
       btnEl.className = 'motiv-goal-btn';
+      btnEl.dataset.i18n = 'motivGoalBtn'; // applyLang() で言語切替時に自動更新
       el.appendChild(btnEl);
       btnEl.addEventListener('click', (e) => {
         e.stopPropagation(); // 詳細モーダルを開かないようにする
@@ -303,7 +304,7 @@ function _motivRenderInto(el, msg, goal) {
         }
       });
     }
-    btnEl.textContent = (typeof T === 'function') ? T('motivGoalBtn') : '目標にしてプレイ';
+    btnEl.textContent = _mT('motivGoalBtn');
   } else if (btnEl) {
     btnEl.remove();
   }
