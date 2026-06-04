@@ -503,12 +503,19 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
 #start-screen.mode-selecting #start-btn,
 #start-screen.mode-selecting #feedback-start-btn { display: none; }
 
-/* プレイパネル: 縦中央寄せ。下部に固定ボタン2つ（スタート+フィードバック）分の余白を確保 */
+/* プレイパネル: 縦中央寄せ。下部に固定ボタン2つ（スタート+フィードバック）分の余白を確保。
+   safe center: コンテンツが画面高を超える小型端末では flex-start にフォールバックし、
+   上端がスクロールで到達不能になるのを防ぐ（中央寄せのまま上に溢れるのを回避）。 */
 #panel-play {
-  justify-content: center;
+  justify-content: safe center;
   gap: 24px;
   text-align: center;
   padding-bottom: calc(200px + env(safe-area-inset-bottom, 0px));
+}
+
+/* モード選択中: 固定ボタンが隠れるため余白を通常に戻し、シートを上端から表示できるようにする */
+#start-screen.mode-selecting #panel-play {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
 /* 研究・恒星パネル: 上から始まる */
