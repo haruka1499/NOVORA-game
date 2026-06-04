@@ -131,27 +131,48 @@ function _motivBuildCandidates() {
       const myIdx = myPid ? r.entries.findIndex(e => e.player_id === myPid) : -1;
       const isEndless = (r.mode === 'endless');
       if (myIdx === 0) {
-        out.push({ weight: 14, text: _mT('motivRankTop')(mLab, pLab) });
+        // 1位: 2位との差を表示（防衛メッセージ）
+        if (r.entries.length > 1) {
+          const me = r.entries[0];
+          const challenger = r.entries[1];
+          if (r.mode === 'speedrun') {
+            // speedrun: score = 10_000_000 - ms。差が小さいほど2位に近い
+            const diffMs = me.score - challenger.score;
+            out.push({ weight: 14, text: _mT('motivRankDefendTime')(mLab, pLab, _motivFmtTime(diffMs)) });
+          } else {
+            const diff = me.score - challenger.score;
+            const txt = _mT('motivRankDefend')(mLab, pLab, _motivFmtNum(diff));
+            out.push({ weight: 14, text: txt,
+              goal: isEndless ? { type:'best', mode:'endless', currentBest: me.score, displayText: txt } : null });
+          }
+        } else {
+          // 自分だけ → 従来の「防衛しよう」
+          out.push({ weight: 14, text: _mT('motivRankTop')(mLab, pLab) });
+        }
       } else if (myIdx > 0) {
+        // 2位以下: 1つ上の人との差を表示
         const me = r.entries[myIdx];
         const up = r.entries[myIdx - 1];
         if (r.mode === 'speedrun') {
           const diffMs = up.score - me.score;
-          out.push({ weight: 13, text: _mT('motivRankCloseTime')(mLab, pLab, _motivFmtTime(diffMs), myIdx) });
+          out.push({ weight: 13, text: _mT('motivRankCloseTime')(mLab, pLab, _motivFmtTime(diffMs), myIdx + 1) });
         } else {
           const diff = up.score - me.score;
-          const txt = _mT('motivRankCloseScore')(mLab, pLab, _motivFmtNum(diff), myIdx);
+          const txt = _mT('motivRankCloseScore')(mLab, pLab, _motivFmtNum(diff), myIdx + 1);
           out.push({ weight: 13, text: txt,
             goal: isEndless ? { type:'rank', mode:'endless', targetScore:up.score, displayText:txt } : null });
         }
       } else if (r.entries.length > 0) {
-        const top = r.entries[0];
+        // 圏外: 1位ではなく最下位のスコアを目標に（ランクインを促す）
         if (r.mode === 'speedrun') {
-          out.push({ weight: 6, text: _mT('motivRankTopTime')(mLab, pLab, _motivFmtTime(10_000_000 - top.score)) });
+          // speedrun は1位タイムを維持（タイムアタック的な性質）
+          const top = r.entries[0];
+          out.push({ weight: 4, text: _mT('motivRankTopTime')(mLab, pLab, _motivFmtTime(10_000_000 - top.score)) });
         } else {
-          const txt = _mT('motivRankTopScore')(mLab, pLab, _motivFmtNum(top.score));
-          out.push({ weight: 6, text: txt,
-            goal: isEndless ? { type:'rank', mode:'endless', targetScore:top.score, displayText:txt } : null });
+          const last = r.entries[r.entries.length - 1];
+          const txt = _mT('motivRankJoin')(mLab, pLab, _motivFmtNum(last.score), last.rank || r.entries.length);
+          out.push({ weight: 5, text: txt,
+            goal: isEndless ? { type:'rank', mode:'endless', targetScore:last.score, displayText:txt } : null });
         }
       } else {
         const txt = _mT('motivRankEmpty')(mLab, pLab);
