@@ -156,6 +156,57 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
 #overlay .result { font-size: 20px; }
 #new-hi { display: none; color: #ffd700; font-size: 17px; }
 #new-hi.show { display: block; }
+
+/* ── スコア/順位更新カード（ゲーム終了画面） ── */
+#score-update-card {
+  display: none;
+  flex-direction: column; align-items: center; gap: 6px;
+  background: linear-gradient(160deg, rgba(255,215,80,0.12), rgba(255,150,50,0.05));
+  border: 1px solid rgba(255,215,80,0.5);
+  border-radius: 14px;
+  padding: 12px 18px;
+  width: min(320px, 90vw);
+  box-shadow: 0 0 24px rgba(255,200,80,0.18);
+  animation: suFadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+#score-update-card.show { display: flex; }
+@keyframes suFadeIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+.su-title {
+  font-size: 16px; font-weight: bold;
+  color: #ffd86b; letter-spacing: 0.04em;
+}
+.su-compare {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.su-row {
+  display: flex; align-items: baseline; gap: 10px;
+  font-size: 17px; font-weight: bold;
+}
+.su-row.su-new   { color: #fff; }
+.su-row.su-old   { color: rgba(255,255,255,0.55); font-size: 14px; font-weight: normal; }
+.su-row.su-old .su-score, .su-row.su-old .su-rank { text-decoration: line-through; opacity: 0.7; }
+.su-rank   { color: #b89eff; font-size: 14px; }
+.su-row.su-new .su-rank { color: #cc99ff; font-size: 15px; }
+.su-arrow  {
+  font-size: 14px; color: #ffd86b; line-height: 1;
+  animation: suArrowBob 1.2s ease-in-out infinite;
+}
+@keyframes suArrowBob {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
+}
+.su-close {
+  font-size: 12px; color: #ffb84a;
+  margin-top: 2px; letter-spacing: 0.02em;
+}
+.su-period {
+  font-size: 10px; color: rgba(255,255,255,0.4);
+  letter-spacing: 0.04em;
+}
 #rank-pct-el {
   display: none;
   font-size: 15px;

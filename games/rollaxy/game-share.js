@@ -78,6 +78,10 @@ async function _createShare() {
       if (typeof _motivFetchRankings === 'function' && typeof _renderMyStats === 'function') {
         _motivFetchRankings().then(() => _renderMyStats()).catch(() => {});
       }
+      // スコア/順位更新カードを描画（ベスト更新 / 順位アップ / 惜しい）
+      if (typeof notifyShareCompleted === 'function') {
+        notifyShareCompleted(periods?.week);
+      }
       // 上位%を計算してゲームオーバー画面に表示（今週ベース）
       if (periods && typeof periods === 'object' && periods.week) {
         const { rank, total } = periods.week;

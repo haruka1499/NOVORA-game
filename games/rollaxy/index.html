@@ -276,7 +276,9 @@
     <h2 data-i18n="gameOver">ゲームオーバー</h2>
     <p class="result"><span data-i18n="scoreResult">スコア</span>: <strong id="final-score">0</strong></p>
     <p id="reward-el" class="reward-line"></p>
-    <p id="new-hi" data-i18n="newRecord">🏆 新記録！</p>
+    <!-- ベスト/順位更新カード（ゲーム終了時に動的に描画） -->
+    <div id="score-update-card"></div>
+    <p id="new-hi" data-i18n="newRecord" style="display:none">🏆 新記録！</p>
     <p id="rank-pct-el"></p>
     <!-- やる気メッセージ (スコア・順位の下に表示) -->
     <div id="overlay-motivation" class="motiv-box"></div>

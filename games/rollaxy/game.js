@@ -777,6 +777,128 @@ function _renderMyStats() {
 })();
 
 // ============================================================
+// スコア/順位更新カード — ゲーム終了画面で「ベスト更新」「順位上昇」「惜しい」を表示
+// ============================================================
+// 仕様:
+//   - 自己ベスト更新 → 「🏆 ベスト更新！」+ 旧/新スコアを並べて表示
+//   - 今週順位アップ → 「🚀 順位アップ！」+ 旧/新順位を矢印で
+//   - ベスト更新したが順位そのまま → 「惜しい！あと N で次の順位だった」
+//   - 何も更新なし → カード非表示（呼ばない）
+//   - speedrun: ms 小さい方が良い、表示は mm:ss.SSS
+let _prevBestSpeedrunMs = 0; // doSpeedrunClear で更新前の BEST_SPEEDRUN_MS を保持
+
+function _renderScoreUpdateCard(opts) {
+  const el = document.getElementById('score-update-card');
+  if (!el) return;
+  const { mode, prevScore, newScore, prevRank, newRank, isSpeedrun, nextRankDiff } = opts;
+  const bestUpdated = isSpeedrun
+    ? (prevScore > 0 && newScore < prevScore) || (prevScore === 0 && newScore > 0)
+    : newScore > prevScore;
+  const rankUp = (prevRank && newRank && newRank < prevRank);
+
+  if (!bestUpdated && !rankUp) {
+    el.classList.remove('show'); el.innerHTML = ''; return;
+  }
+
+  // タイトル
+  let titleKey;
+  if (bestUpdated && rankUp) titleKey = 'suScoreUpdate';
+  else if (rankUp)           titleKey = 'suRankUp';
+  else                       titleKey = 'suBestUpdate';
+
+  const fmtVal = (v) => isSpeedrun ? _formatSpeedrunTime(v) : v.toLocaleString();
+
+  // 比較行: 新スコア+新順位（あれば） / 矢印 / 旧スコア+旧順位（あれば）
+  function _rowHtml(score, rank, isOldRow) {
+    const scoreStr = score > 0 ? fmtVal(score) : '---';
+    const rankStr  = rank ? `#${rank}` : '';
+    return `<div class="su-row ${isOldRow ? 'su-old' : 'su-new'}">`
+      + `<span class="su-score">${scoreStr}</span>`
+      + (rankStr ? `<span class="su-rank">${rankStr}</span>` : '')
+      + `</div>`;
+  }
+
+  let compareHtml = '';
+  // 何かしら旧データがある場合のみ並べて表示
+  const showOld = (prevScore > 0) || (prevRank);
+  compareHtml += _rowHtml(newScore, newRank, false);
+  if (showOld) {
+    compareHtml += `<div class="su-arrow">▲</div>`;
+    compareHtml += _rowHtml(prevScore, prevRank, true);
+  }
+
+  // 「惜しい！」: ベスト更新したが順位は変わらず、次の順位との差が分かるとき
+  let closeHtml = '';
+  if (bestUpdated && !rankUp && nextRankDiff != null && nextRankDiff > 0) {
+    closeHtml = isSpeedrun
+      ? `<div class="su-close">${T('suCloseTime')(_formatSpeedrunTime(nextRankDiff))}</div>`
+      : `<div class="su-close">${T('suClose')(nextRankDiff.toLocaleString())}</div>`;
+  }
+
+  el.innerHTML = `<div class="su-title">${T(titleKey)}</div>`
+    + `<div class="su-compare">${compareHtml}</div>`
+    + closeHtml
+    + `<div class="su-period">${T('suWeeklyLabel')}</div>`;
+  el.classList.add('show');
+}
+
+// doGameOver の冒頭で「更新前」の自己ベスト情報をスナップショットする。
+// hiScore / hiScoreTime / BEST_SPEEDRUN_MS は doGameOver 内で更新されるため、
+// 比較カード描画時には既に新値になっている。旧値はここで保存して参照する。
+let _prevBestSnap = { score: 0, shareId: '' };
+function _snapshotPrevBest(mtype) {
+  if (mtype === 'endless') {
+    _prevBestSnap = { score: hiScore, shareId: localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID) || '' };
+  } else if (mtype === 'time') {
+    _prevBestSnap = { score: hiScoreTime, shareId: localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID_TIME) || '' };
+  } else if (mtype === 'speedrun') {
+    _prevBestSnap = { score: _prevBestSpeedrunMs, shareId: localStorage.getItem(STORAGE_KEYS.BEST_SHARE_ID_SPEEDRUN) || '' };
+  }
+}
+
+// シェア完了時のサーバーレスポンスから呼ばれる。スコア/順位の比較データを組み立てて表示。
+//   periodsWeek: { rank, total } | undefined（サーバーから返る今週順位）
+function notifyShareCompleted(periodsWeek) {
+  const mtype = curMode()?.type;
+  if (mtype !== 'endless' && mtype !== 'time' && mtype !== 'speedrun') return;
+  if (mtype === 'speedrun' && _endReason !== 'speedrun_clear') return;
+
+  const isSpeedrun = (mtype === 'speedrun');
+  const newScore   = isSpeedrun ? _speedrunClearMs : score;
+  const prevScore  = _prevBestSnap.score;
+  const newRank    = periodsWeek?.rank || null;
+
+  // 今週のランキングで前回ベストの順位を _motivRankCache から取得（送信前のキャッシュ）
+  let prevRank = null;
+  let nextRankDiff = null;
+  if (typeof _motivRankCache !== 'undefined' && _motivRankCache?.data) {
+    const r = _motivRankCache.data.find(d => d.mode === mtype && d.period === 'weekly');
+    if (r) {
+      if (_prevBestSnap.shareId) {
+        const idx = r.entries.findIndex(e => e.id === _prevBestSnap.shareId);
+        if (idx >= 0) prevRank = idx + 1;
+      }
+      // 「惜しい」用: 今回の順位の1つ上の人とのスコア差
+      if (newRank && newRank > 1 && r.entries.length >= newRank - 1) {
+        const oneAbove = r.entries[newRank - 2];
+        if (oneAbove) {
+          if (isSpeedrun) {
+            // speedrun の score は 10_000_000 - ms。差はそのまま ms 差
+            nextRankDiff = oneAbove.score - (10_000_000 - newScore);
+          } else {
+            nextRankDiff = oneAbove.score - newScore;
+          }
+        }
+      }
+    }
+  }
+
+  _renderScoreUpdateCard({
+    mode: mtype, prevScore, newScore, prevRank, newRank, isSpeedrun, nextRankDiff,
+  });
+}
+
+// ============================================================
 // 目標モード — やる気メッセージから目標を設定してエンドレスを始める
 // ============================================================
 let _activeGoal          = null;  // 現在の目標 {type, displayText, ...}
@@ -1497,8 +1619,9 @@ function doSpeedrunClear() {
   _endIsClear = true;
   _endReason  = 'speedrun_clear';
   const ms = _speedrunClearMs;
-  // ベスト更新 (ms が小さいほど良い)
+  // ベスト更新 (ms が小さいほど良い)。doGameOver の更新カード表示用に前回ベストを保持
   const prev = parseInt(localStorage.getItem(STORAGE_KEYS.BEST_SPEEDRUN_MS) || '0', 10);
+  _prevBestSpeedrunMs = prev;
   if (!prev || ms < prev) {
     localStorage.setItem(STORAGE_KEYS.BEST_SPEEDRUN_MS, String(ms));
   }
@@ -1561,6 +1684,11 @@ function _runEndEffect() {
 function doGameOver() {
   if (dead) return;
   dead = true;
+  // スコア/順位カード用に「更新前」の自己ベストをスナップショット
+  _snapshotPrevBest(curMode()?.type);
+  // ゲーム終了画面のスコア更新カードを初期化（前回の表示をクリア）
+  const _suCard = document.getElementById('score-update-card');
+  if (_suCard) { _suCard.classList.remove('show'); _suCard.innerHTML = ''; }
   // エンドレスのゲームオーバーはセーブを破棄（一期一会。次は新規スタート）
   if (curMode()?.type === 'endless') _clearEndlessSave();
   // 停止 → 揺れ → スロー → 通常 の汎用演出を起動 (オーバーレイ表示はこの後遅延)
