@@ -474,19 +474,16 @@ canvas { position: absolute; top: 0; left: 0; transform-origin: top left; }
   pointer-events: none;
 }
 
-/* カルーセルトラック（3パネル横並び） */
+/* カルーセルトラック（旧3パネル構成。研究/宇宙パネル廃止後は単一パネル） */
 #home-carousel {
   flex: 1; min-height: 0;
   display: flex; flex-direction: row;
-  width: 300%;                 /* 3パネル分 */
-  transform: translateX(-33.333%);  /* 初期: プレイパネル表示 */
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  width: 100%;
 }
 
-/* 各パネル共通 */
+/* 各パネル共通（現在は #panel-play のみ） */
 .home-panel {
-  width: 33.333%;              /* 300%の1/3 = viewport幅 */
+  width: 100%;
   flex-shrink: 0;
   height: 100%;
   overflow-y: auto;
