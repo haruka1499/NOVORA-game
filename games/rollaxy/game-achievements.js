@@ -364,9 +364,9 @@ _syncFromServer();
 
   // click+touchend の二重登録は共通ユーティリティ on()（game-util.js）に統一。
   // on() は要素が null だと落ちるため、存在する場合のみバインドする。
-  if (backBtn)    on(backBtn,    () => closeAchievements());
-  if (startBtn)   on(startBtn,   () => openAchievements());
-  if (menuBtn)    on(menuBtn,    () => openAchievements());
+  if (backBtn)    on(backBtn,    () => { playBackSound();     closeAchievements(); });
+  if (startBtn)   on(startBtn,   () => { playDecisionSound(); openAchievements(); });
+  if (menuBtn)    on(menuBtn,    () => { playDecisionSound(); openAchievements(); });
 
   // トーストをタップ/クリックで即スキップ（次の実績へ）
   const toastEl = document.getElementById('ach-toast');

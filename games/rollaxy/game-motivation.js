@@ -320,6 +320,7 @@ function _motivRenderInto(el, msg, goal) {
       el.appendChild(btnEl);
       btnEl.addEventListener('click', (e) => {
         e.stopPropagation(); // 詳細モーダルを開かないようにする
+        if (typeof playDecisionSound === 'function') playDecisionSound();
         if (typeof _motivOnGoalSelect === 'function' && _motivCurrentGoal) {
           _motivOnGoalSelect(_motivCurrentGoal);
         }
@@ -408,10 +409,10 @@ function _closeMotivDetail() {
   const ids = ['home-motivation', 'overlay-motivation'];
   for (const id of ids) {
     const el = document.getElementById(id);
-    if (el && typeof on === 'function') on(el, () => _openMotivDetail());
+    if (el && typeof on === 'function') on(el, () => { if (typeof playDecisionSound === 'function') playDecisionSound(); _openMotivDetail(); });
   }
   const modal   = document.getElementById('motiv-detail-modal');
   const closeBtn = document.getElementById('motiv-detail-close');
-  if (closeBtn && typeof on === 'function') on(closeBtn, () => _closeMotivDetail());
+  if (closeBtn && typeof on === 'function') on(closeBtn, () => { if (typeof playBackSound === 'function') playBackSound(); _closeMotivDetail(); });
   if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) _closeMotivDetail(); });
 })();

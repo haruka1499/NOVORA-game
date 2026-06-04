@@ -158,4 +158,4 @@ function shareToX() {
   window.open(tweetUrl, '_blank');
 }
 
-on(shareBtn, () => shareToX());
+on(shareBtn, () => { playDecisionSound(); shareToX(); });

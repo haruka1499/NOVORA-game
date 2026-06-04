@@ -61,13 +61,14 @@ function closeSettings() {
   _showMenuPanel(); // 次回オープン時のためにメニューへリセット
 }
 
-on(settingsBtn,       () => paused ? closeSettings() : openSettings());
+on(settingsBtn,       () => { playDecisionSound(); paused ? closeSettings() : openSettings(); });
 on(resumeBtn,         () => { playBackSound(); closeSettings(); });
-on(menuSettingsBtn,   () => _showSettingsPanel());
+on(menuSettingsBtn,   () => { playDecisionSound(); _showSettingsPanel(); });
 on(settingsBackBtn,   () => { playBackSound(); _showMenuPanel(); });
-on(settingsCreditsBtn,() => _showCreditsPanel());
+on(settingsCreditsBtn,() => { playDecisionSound(); _showCreditsPanel(); });
 on(creditsBackBtn,    () => { playBackSound(); _showSettingsPanel(); });
 on(resetBtn, () => {
+  playBackSound();
   // エンドレス中: 現在の盤面を保存してからホームへ（セーブは破棄しない）
   const isEndless = !waiting && !dead && typeof curMode === 'function' && curMode()?.type === 'endless';
   if (isEndless && typeof _saveEndlessGame === 'function') _saveEndlessGame();
@@ -93,7 +94,7 @@ if (displayNameSaveBtn) {
       status.dataset.ok    = '';
     }
   };
-  on(displayNameSaveBtn, doSaveName);
+  on(displayNameSaveBtn, () => { playDecisionSound(); doSaveName(); });
   document.getElementById('displayname-input')
     ?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSaveName(); } });
 }
@@ -108,10 +109,12 @@ const homeMenuSettings = document.getElementById('home-menu-settings');
 function _closeHomeMenu() { hide(homeMenuPanel); }
 
 on(homeMenuBtn, () => {
+  playDecisionSound();
   homeMenuPanel.classList.contains('show') ? _closeHomeMenu() : show(homeMenuPanel);
 });
 
 on(homeMenuSettings, () => {
+  playDecisionSound();
   _closeHomeMenu();
   openHomeSettings();
 });
@@ -165,7 +168,7 @@ function closeHomeSettings() {
 }
 
 on(homeSettingsClose, () => { playBackSound(); closeHomeSettings(); });
-on(homeCreditsBtn2,   () => _showHomeCreditsPanel());
+on(homeCreditsBtn2,   () => { playDecisionSound(); _showHomeCreditsPanel(); });
 on(homeCreditsBack,   () => { playBackSound(); _showHomeSettingsPanel(); });
 
 // ── 効果音スライダー（ゲーム内スライダーと sfxVolume を共有）
@@ -224,7 +227,7 @@ if (homeDisplayNameSaveBtn) {
       status.dataset.ok  = '';
     }
   };
-  on(homeDisplayNameSaveBtn, doSaveHomeName);
+  on(homeDisplayNameSaveBtn, () => { playDecisionSound(); doSaveHomeName(); });
   document.getElementById('home-displayname-input')
     ?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSaveHomeName(); } });
 }

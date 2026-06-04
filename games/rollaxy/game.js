@@ -94,7 +94,7 @@ function _dismissNameHint() {
   if (startNameHint) hide(startNameHint);
 }
 
-on(startNameHintOkBtn, _dismissNameHint);
+on(startNameHintOkBtn, () => { playDecisionSound(); _dismissNameHint(); });
 
 function _openStartNameEditor() {
   if (startNameInput) {
@@ -120,10 +120,10 @@ function _saveStartName() {
   _dismissNameHint();
 }
 
-on(startNameEditBtn,   _openStartNameEditor);
-on(startNameSaveBtn,   _saveStartName);
-on(startNameCancelBtn, _closeStartNameEditor);
-on(startNameHint,      _openStartNameEditor);
+on(startNameEditBtn,   () => { playDecisionSound(); _openStartNameEditor(); });
+on(startNameSaveBtn,   () => { playDecisionSound(); _saveStartName(); });
+on(startNameCancelBtn, () => { playBackSound();     _closeStartNameEditor(); });
+on(startNameHint,      () => { playDecisionSound(); _openStartNameEditor(); });
 startNameInput.addEventListener('keydown', e => {
   if (e.key === 'Enter')  _saveStartName();
   if (e.key === 'Escape') _closeStartNameEditor();
@@ -1009,12 +1009,14 @@ function _onGoalAchieved() {
 (function _bindGoalAchievedBtns() {
   const modal = document.getElementById('goal-achieved-modal');
   on(document.getElementById('goal-continue-btn'), () => {
+    playDecisionSound();
     // 目標をクリアして続行
     _clearGoal();
     modal?.classList.remove('show');
     if (eng?.timing) eng.timing.timeScale = 1;
   });
   on(document.getElementById('goal-home-btn'), () => {
+    playBackSound();
     // セーブしてホームへ（auto-saveに任せてinit）
     _clearGoal();
     modal?.classList.remove('show');
@@ -1045,7 +1047,7 @@ function _updateIntroVideo() {
 }
 // × ボタン: このセッション中は非表示
 const _introCloseBtn = document.getElementById('intro-video-close');
-if (_introCloseBtn) on(_introCloseBtn, () => { _introClosed = true; _updateIntroVideo(); });
+if (_introCloseBtn) on(_introCloseBtn, () => { playDecisionSound(); _introClosed = true; _updateIntroVideo(); });
 
 // 物理エンジン・壁・衝突イベントを再構築する（init からのみ呼ばれる）。
 // bmap などの状態リセット後に呼ぶこと。
@@ -2235,7 +2237,7 @@ if (_overlayHomeBtn) {
 // モード解放ポップアップの閉じるボタン + 背景タップ
 const _modeUnlockCloseBtn = document.getElementById('mode-unlock-close');
 const _modeUnlockModal    = document.getElementById('mode-unlock-modal');
-if (_modeUnlockCloseBtn) on(_modeUnlockCloseBtn, () => _closeModeUnlockPopup());
+if (_modeUnlockCloseBtn) on(_modeUnlockCloseBtn, () => { playDecisionSound(); _closeModeUnlockPopup(); });
 if (_modeUnlockModal) {
   _modeUnlockModal.addEventListener('click', (e) => {
     if (e.target === _modeUnlockModal) _closeModeUnlockPopup();
@@ -2348,10 +2350,10 @@ async function renderRankingHome() {
 
 // タブ click 配線 (mode / period)
 document.querySelectorAll('#rank-mode-tabs .rank-mode').forEach(btn => {
-  on(btn, () => { _rankHomeMode = btn.dataset.mode; renderRankingHome(); });
+  on(btn, () => { playDecisionSound(); _rankHomeMode = btn.dataset.mode; renderRankingHome(); });
 });
 document.querySelectorAll('#rank-period-tabs .rank-period').forEach(btn => {
-  on(btn, () => { _rankHomePeriod = btn.dataset.period; renderRankingHome(); });
+  on(btn, () => { playDecisionSound(); _rankHomePeriod = btn.dataset.period; renderRankingHome(); });
 });
 // 背景タップで閉じる
 const _rankingOverlayEl = document.getElementById('ranking-overlay');
@@ -2379,6 +2381,7 @@ function _openModeSelectSheet() {
     card.innerHTML = `<span class="mc-name">${modeName(m)}${timeLabel}</span>`
                    + `<span class="mc-desc">${descMap[m.type] || ''}</span>`;
     card.addEventListener('click', () => {
+      playDecisionSound();
       currentModeId = m.id;
       localStorage.setItem(STORAGE_KEYS.LAST_MODE, currentModeId);
       _closeModeSelectSheet();
@@ -2700,6 +2703,7 @@ on(modeToggleBtn, () => {
   if (!isStageTutorialDone()) return; // チュートリアル中はモード切替不可
   const unlocked = CFG.MODES.filter(m => m.type !== 'tutorial' && isUnlocked(m));
   if (unlocked.length < 2) return;
+  playDecisionSound();
   const idx = unlocked.findIndex(m => m.id === currentModeId);
   currentModeId = unlocked[(idx + 1) % unlocked.length].id;
   localStorage.setItem(STORAGE_KEYS.LAST_MODE, currentModeId);

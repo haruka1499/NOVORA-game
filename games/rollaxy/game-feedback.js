@@ -111,8 +111,8 @@ if (_fb.modal) {
     _fb.counter.textContent = `${len} / 1000`;
     _fb.sendBtn.disabled = (_fbSending || _fb.text.value.trim().length < 1);
   });
-  on(_fb.sendBtn,   () => _fbSubmit());
-  on(_fb.cancelBtn, () => closeFeedbackModal());
+  on(_fb.sendBtn,   () => { playDecisionSound(); _fbSubmit(); });
+  on(_fb.cancelBtn, () => { playBackSound();     closeFeedbackModal(); });
   // 背景クリックで閉じる
   on(_fb.modal, (e) => {
     if (e.target === _fb.modal && !_fbSending) closeFeedbackModal();
@@ -123,6 +123,7 @@ if (_fb.modal) {
 // gameover 側のボタンはクリア時にも兼用されるため、next-stage-btn が表示中なら 'clear' に差し替える。
 document.querySelectorAll('.feedback-entry').forEach((btn) => {
   on(btn, () => {
+    playDecisionSound();
     let src = btn.dataset.source || 'unknown';
     if (src === 'gameover') {
       const nextBtn = document.getElementById('next-stage-btn');

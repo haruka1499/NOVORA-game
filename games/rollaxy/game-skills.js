@@ -756,7 +756,7 @@ on(confirmCancelBtn, () => cancelSkillAction());
 
 // 4連鎖ルーレット停止ボタン
 const rouletteStopBtn = document.getElementById('roulette-stop');
-on(rouletteStopBtn, () => rltStop());
+on(rouletteStopBtn, () => { playDecisionSound(); rltStop(); });
 
 // Space キーでルーレット停止（PCショートカット）
 document.addEventListener('keydown', e => {
@@ -778,4 +778,4 @@ const claimOpen = () => {
     showChainRewardPanel(true);
   }
 };
-on(skillClaimBtn, claimOpen);
+on(skillClaimBtn, () => { playDecisionSound(); claimOpen(); });
